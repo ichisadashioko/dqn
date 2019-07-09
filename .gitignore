@@ -1,1 +1,9 @@
 .ipynb_checkpoints
+__pycache__
+
+*.swp
+
+timestamp.ipynb
+resampling.ipynb
+
+Breakout-v0
