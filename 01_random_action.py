@@ -15,13 +15,21 @@ if __name__ == "__main__":
     done = False
     state = env.reset()
 
-    cv2.imshow(env_name, cv_img(state))
+    # cv2.imshow(env_name, cv_img(state))
 
-    while not done:
-        action = env.action_space.sample()
+    # while not done:
+    for _ in range(1_000):
+        # action = env.action_space.sample()
+        # actions [NOOP, FIRE, RIGHT, LEFT]
+        # references 'atari_py/ale_interface/src/games/supported/Breakout.cpp:83'
+        # player needs to fire to fire the ball
+        action = 1
         observation = env.step(action)
         state, reward, done, info = observation
-        cv2.imshow(env_name, cv_img(state))
-        cv2.waitKey(20)
 
-    cv2.destroyAllWindows()
+        env.render()
+
+    #     cv2.imshow(env_name, cv_img(state))
+    #     cv2.waitKey(20)
+
+    # cv2.destroyAllWindows()
