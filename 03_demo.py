@@ -36,7 +36,7 @@ if __name__ == "__main__":
 
             done = False
             state = env.reset()
-            state = process_image(state)
+            state = process_state(state)
             dqn_memory.states.append(state)
             env.render()
 
@@ -53,7 +53,7 @@ if __name__ == "__main__":
 
                 new_state, reward, done, info = observation
                 # process new state to reduce memory
-                new_state = process_image(new_state)
+                new_state = process_state(new_state)
                 # add new observation to `dqn_memory`
                 dqn_memory.add(new_state, action, reward)
 
