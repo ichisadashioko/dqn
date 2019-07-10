@@ -44,7 +44,7 @@ def ray_trace(seq_images):
     min_alpha = 0.25
     max_alpha = 1.0
     seq_alpha = np.linspace(min_alpha, max_alpha, num=len(seq_images))
-    print(time_now(), seq_alpha)
+    # print(time_now(), seq_alpha)
     for alpha, image in zip(seq_images, seq_alpha):
         s = image * alpha
         process_seq.append(s)
@@ -62,6 +62,12 @@ class DQNMemory:
         self.actions = []
         self.rewards = []
         self.terminals = []  # when an episode ends, there is no next action, reward
+
+    def get_current_size(self):
+        return len(self.states), len(self.actions), len(self.rewards), len(self.terminals)
+
+    def get(self, idx):
+        return self.states[idx], self.actions[idx], self.rewards[idx], self.terminals[idx]
 
     def pop(self):
         self.states.pop(0)
@@ -81,9 +87,11 @@ class DQNMemory:
 
         if not next_state:
             if idx >= len(self.actions):
+                raise ValueError(f'There is no next state for {idx}')
                 return None
 
             elif self.actions[idx] == None:
+                raise ValueError(f'There is no next state for {idx}')
                 return None
 
         if idx == 0:  # there is no state before `idx`
@@ -100,12 +108,13 @@ class DQNMemory:
             # hit terminal state of the last episode
             if _idx >= len(self.actions):
                 pass
-            elif self.actions[_idx] == None:
+            elif (self.actions[_idx] == None) and not (i == 0):
                 break
 
             state_stack.insert(0, self.states[_idx])
 
         if len(state_stack) == 0:
+            raise ValueError(f'Empty stack for {idx}')
             return None
 
         retval = np.array(state_stack)
@@ -152,10 +161,30 @@ class DQNMemory:
             idx_pool.remove(select_idx)
             shuffle_indices.append(select_idx)
 
-        state_list = [ray_trace(self.get_state(idx)) for idx in shuffle_indices]
-        action_list = [self.actions[idx] for idx in shuffle_indices]
-        reward_list = [self.rewards[idx] for idx in shuffle_indices]
-        next_state_list = [ray_trace(self.get_state(idx)) for idx in shuffle_indices]
+        state_list = []
+        action_list = []
+        reward_list = []
+        next_state_list = []
+        for idx in shuffle_indices:
+            if idx >= len(self.actions):
+                continue
+
+            if self.actions[idx] == None:
+                continue
+
+            state = self.get_state(idx)
+            state = ray_trace(state)
+
+            action = self.actions[idx]
+            reward = self.rewards[idx]
+
+            next_state = self.get_state(idx + 1, next_state=True)
+            next_state = ray_trace(next_state)
+
+            state_list.append(state)
+            action_list.append(action)
+            reward_list.append(reward)
+            next_state_list.append(next_state)
 
         return state_list, action_list, reward_list, next_state_list
 
