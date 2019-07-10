@@ -37,28 +37,34 @@ if __name__ == "__main__":
             done = False
             state = env.reset()
             state = process_state(state)
-            dqn_memory.states.append(state)
+            dqn_memory.start_eps(state)
             env.render()
 
+            total_reward = 0
+
             while not done:
-                batch = dqn_memory.get_state(-1)
+                batch = dqn_memory.get_state(-1, next_state=True)
                 batch = ray_trace(batch)
                 batch = agent.reshape_state(batch)
                 batch = batch / 255.0
                 action = np.argmax(agent.model.predict(batch)[0])
 
-                print('action:', action)
+                # print('action:', action)
                 observation = env.step(action)
                 env.render()
 
                 new_state, reward, done, info = observation
+                total_reward += reward
                 # process new state to reduce memory
                 new_state = process_state(new_state)
                 # add new observation to `dqn_memory`
-                dqn_memory.add(new_state, action, reward)
+                dqn_memory.add(new_state, action, reward, done)
 
                 state = new_state
 
+            dqn_memory.end_eps()
+
+            print(f'episode {episode} -- total reward: {total_reward}')
     except KeyboardInterrupt:
         pass
     env.close()

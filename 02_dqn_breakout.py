@@ -33,7 +33,7 @@ if __name__ == "__main__":
 
     dqn_memory = DQNMemory()
 
-    num_episodes = 10
+    num_episodes = 32
     max_epsilon = 1.0  # 100% random
     min_epsilon = 0.4
     delta_epsilon = (max_epsilon - min_epsilon) / num_episodes
@@ -47,7 +47,8 @@ if __name__ == "__main__":
             done = False
             state = env.reset()
             state = process_state(state)
-            dqn_memory.states.append(state)
+
+            dqn_memory.start_eps(state)
             env.render()
 
             while not done:
@@ -56,7 +57,7 @@ if __name__ == "__main__":
 
                     greedy = False
                 else:
-                    batch = dqn_memory.get_state(-1)
+                    batch = dqn_memory.get_state(-1, next_state=True)
                     batch = ray_trace(batch)
                     batch = agent.reshape_state(batch)
                     batch = batch / 255.0
@@ -71,15 +72,17 @@ if __name__ == "__main__":
                 # process new state to reduce memory
                 new_state = process_state(new_state)
                 # add new observation to `dqn_memory`
-                dqn_memory.add(new_state, action, reward)
+                dqn_memory.add(new_state, action, reward, done)
 
-                _state = ray_trace(dqn_memory.get_state(-2))
-                _new_state = ray_trace(dqn_memory.get_state(-1))
+                # _state = ray_trace(dqn_memory.get_state(-2))
+                # _new_state = ray_trace(dqn_memory.get_state(-1))
 
-                agent.update_q_values(_state, action, reward, _new_state)
+                # agent.update_q_values(_state, action, reward, _new_state)
+            dqn_memory.end_eps()
+            # update Q values at the end of the episode
+            state_list, action_list, reward_list, next_state_list = dqn_memory.sample_memory()
+            agent.replay_memory(state_list, action_list, reward_list, next_state_list)
 
-            #     break
-            # break
             if not os.path.exists(env_name):
                 os.makedirs(env_name)
             weights_filename = f'{env_name}/{env_name}_weights_{time_now()}_eps_{episode}.h5'

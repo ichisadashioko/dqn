@@ -138,14 +138,14 @@ class DQNMemory:
         self.rewards.append(None)
         self.terminals.append(None)
 
-    def add(self, new_state, action, reward, terminal):
+    def add(self, next_state, action, reward, terminal):
         """
         This method should be call after the agent has taken an action.
         """
         if len(self.states) > self.size:
             self.pop()
 
-        self.states.append(new_state)
+        self.states.append(next_state)
         self.actions.append(action)
         self.rewards.append(reward)
         self.terminals.append(terminal)
@@ -251,11 +251,11 @@ class DQN:
         """
         return np.reshape(a=states, newshape=(len(states), *self.input_shape))
 
-    def update_q_values(self, state, action, reward, new_state):
-        # batch the current `state` and the `new_state` together for optimization
+    def update_q_values(self, state, action, reward, next_state):
+        # batch the current `state` and the `next_state` together for optimization
         q_batch = np.array([
             state,
-            new_state,
+            next_state,
         ])
         # reshape the batch
         q_batch = np.reshape(a=q_batch, newshape=(2, *self.input_shape))
@@ -263,13 +263,13 @@ class DQN:
         q_batch = q_batch / 255.0
         # get the Q-values from the deep neural network
         q_results = self.model.predict(q_batch)
-        current_q_values = q_results[0]
-        new_state_q_values = q_results[1]
+        state_q_values = q_results[0]
+        next_state_q_values = q_results[1]
 
         # copy the current Q-values
-        target_q_values = current_q_values
+        target_q_values = state_q_values
         # modify the Q-value of the `action`
-        target_q_values[action] = reward + self.discount_rate * np.max(new_state_q_values)
+        target_q_values[action] = reward + self.discount_rate * np.max(next_state_q_values)
         target_q_values = np.array([target_q_values])
         x = self.reshape_state(state)
         x = x / 255.0
@@ -280,10 +280,39 @@ class DQN:
         )
 
     def replay_memory(self, state_list: list, action_list: list, reward_list: list, next_state_list: list):
-        batch = state_list + reward_list
-        batch = np.array(batch, dtype=np.uint8)
-        batch = self.reshape_states(batch)
-        batch = batch.astype(np.float) / 255.0
-        q_result = self.model.predict(batch)
-        current_q_values = q_result[:len(state_list)]
-        next_state_q_values = q_result[len(state_list):]
+        assert len(state_list) == len(action_list) == len(reward_list) == len(next_state_list)
+        # batch the current `state` and the `next_state` together for optimization
+        batch = []
+        for state in state_list:
+            # at this point `state.shape` == `(105, 80)`
+            _state = np.reshape(state, self.input_shape)
+            # `_state.shape` == `(105, 80, 1)`
+            batch.append(_state)
+
+        for state in next_state_list:
+            _state = np.reshape(state, self.input_shape)
+            batch.append(_state)
+
+        batch = np.array(batch, dtype=np.float32) / 255.0
+        # `batch.shape` == `(batch_size, 105, 80, 1)`
+
+        # get the Q-values from the deep neural network
+        q_results = self.model.predict(batch)
+
+        state_q_values = q_results[:len(state_list)]
+        next_state_q_values = q_results[len(state_list):]
+
+        # for state_q_row, action, reward, next_state_q_row in zip(state_q_values, action_list, reward_list, next_state_q_values):
+        #     pass
+
+        # modify Q values
+        for t in range(len(action_list)):  # `t` : timestep
+            a = action_list[t]  # action
+            r = reward_list[t]  # reward
+            state_q_values[t, a] = r + self.discount_rate * np.max(next_state_q_values[t])
+
+        state_batch = batch[:len(action_list)]
+        self.model.fit(
+            x=state_batch,
+            y=state_q_values,
+        )
