@@ -25,13 +25,6 @@ def time_now(micro=False):
     return retval
 
 
-def process_state(img):
-    _img = np.mean(img, axis=2, dtype=np.uint8)
-    _img = _img[::2, ::2]
-    # _img = np.where(_img == 0, 0, 255).astype(np.uint8)
-    return _img
-
-
 def create_model(input_shape=(105, 80, 4), n_actions=4):
     model = keras.Sequential([
         Conv2D(
@@ -73,48 +66,129 @@ def compile_model(model, lr=0.00025):
         optimizer=optimizer,
     )
 
+
 class TransitionTable:
-    def __init__(self, histLen=1, maxSize=1_000_000):
+    def __init__(
+        self,
+        histLen=1,
+        maxSize=1_000_000,
+        bufferSize=1024,
+    ):
         self.histLen = histLen
         self.maxSize = maxSize
+        self.bufferSize = bufferSize
+        self.buf_ind = None
 
         self.recentMemSize = self.histLen
 
         self.numEntries = 0
         self.insertIndex = 0
 
-        # TODO pre-allocate (maxSize, dims) Tensors
+        # TODO 1 pre-allocate (maxSize, dims) Tensors
         self.s = []
         self.a = []
         self.r = []
         self.t = []
-        # Tables for storing the last `histLen` states. They are used for constructing the most recent agent state more easily
 
+        # Tables for storing the last `histLen` states. They are used for constructing the most recent agent state more easily
         self.recent_s = []
         self.recent_a = []
         self.recent_t = []
 
-    def reset(self):
+        # TODO 1 pre-allocate Tensors
+        self.buf_a = []
+        self.buf_r = []
+        self.buf_term = []
+        self.buf_s = []
+        self.buf_s2 = []
+
+    def reset(self):  # DONE
         self.numEntries = 0
         self.insertIndex = 0
-    
-    def size(self):
+
+    def size(self):  # DONE
         return self.numEntries
-    
-    def empty(self):
+
+    def empty(self):  # DONE
         return self.numEntries == 0
-    
-    def add(self, s, a, r, term):
+
+    def fill_buffer(self):  # TODO 3
+        assert self.numEntries >= self.bufferSize
+        # clear CPU buffers
+        self.buf_ind = 1
+
+        for buf_ind in range(self.bufferSize):
+            s, a, r, s2, term = self.sample_one()
+            self.buf_s[buf_ind] = s
+            self.buf_a[buf_ind] = a
+            self.buf_r[buf_ind] = r
+            self.buf_s2[buf_ind] = s2
+            self.buf_term[buf_ind] = term
+
+        self.buf_s = self.buf_s / 255.0
+        self.buf_s2 = self.buf_s2 / 255.0
+
+    def sample_one(self):  # TODO 3
+        assert self.numEntries > 1
+
+        valid = False
+        while not valid:
+            # start at 2 because of previous action
+            index = random.randrange(2, self.numEntries - self.recentMemSize)
+
+            if self.t[index + self.recentMemSize - 1] == 0:
+                valid = True
+
+        return self.get(index)
+
+    def sample(self, batch_size=1):  # TODO 4
+        assert batch_size < self.bufferSize
+
+    def concatFrames(self, index, use_recent=False):  # TODO 4
+        if use_recent:
+            s, t = self.recent_s, self.recent_t
+        else:
+            s, t = self.s, self.t
+
+        fullstate = None
+
+        # Copy frames from the current episode
+        # TODO 5 copy frames and zero-out un-related frames
+        # for i in range(index, )
+        return fullstate
+
+    def concatActions(self, index, use_recent=False):  # TODO 4
+        act_hist = []
+        if use_recent:
+            a, t = self.recent_a, self.recent_t
+        else:
+            a, t = self.a, self.t
+
+        # zero out frames from all but the most recent episode
+        # TODO 5
+
+    def get_recent(self):  # DONE
+        # Assumes that the most recent state has been added, but the action has not
+        return self.concatFrames(1, True)
+
+    def get(self, index):  # DONE
+        s = self.concatFrames(index)
+        s2 = self.concatFrames(index + 1)
+        ar_index = index + self.recentMemSize - 1
+
+        return s, self.a[ar_index], self.r[ar_index], s2, self.t[ar_index + 1]
+
+    def add(self, s, a, r, term):  # DONE
         # Increment until at full capacity
         if self.numEntries < self.maxSize:
             self.numEntries += 1
-        
+
         # Always insert at next index, then wrap around
         self.insertIndex += 1
         # Overwrite oldest experience once at capacity
         if self.insertIndex > self.maxSize:
             self.insertIndex = 1
-        
+
         # Overwrite (s, a, r, t) at `insertIndex`
         self.s[self.insertIndex] = s
         self.a[self.insertIndex] = a
@@ -123,50 +197,22 @@ class TransitionTable:
             self.t[self.insertIndex] = 1
         else:
             self.t[self.insertIndex] = 0
-    
-    def concatFrames(self, index, use_recent=False):
-        if use_recent:
-            s, t = self.recent_s, self.recent_t
-        else:
-            s, t = self.s, self.t
-        
-        fullstate = None
 
-        # Copy frames from the current episode
-        # TODO copy frames and zero-out un-related frames
-        # for i in range(index, )
-        return fullstate
+    def add_recent_state(self, s, term):  # TODO
+        if len(self.recent_s) == 0:
+            for i in range(self.recentMemSize):
+                pass
 
-    def get(self, index):
-        s = self.concatFrames(index)
-        s2 = self.concatFrames(index+1)
-        ar_index = index + self.recentMemSize-1
-
-        return s, self.a[ar_index], self.r[ar_index], s2, self.t[ar_index+1]
-        
-    def sample_one(self):
-        assert self.numEntries > 1
-
-        valid = False
-        while not valid:
-            # start at 2 because of previous action
-            index = random.randrange(2, self.numEntries-self.recentMemSize)
-
-            if self.t[index+self.recentMemSize-1] == 0: # 
-                valid = True
-        
-        return self.get(index)
-
-    def fill_buffer(self):
-        # TODO fill_buffer
+    def add_recent_action(self, a):  # TODO
         pass
-    
+
+
 class DQNAgent:
     def __init__(
-        self, 
-        n_actions=4, 
+        self,
+        n_actions=4,
         ep_start=1.0,
-        ep_end=0.1, 
+        ep_end=0.1,
         ep_endt=1_000_000,
         lr=0.00025,
         minibatch_size=1,
@@ -177,24 +223,24 @@ class DQNAgent:
         learn_start=0,
         replay_memory=1_000_000,
         hist_len=1,
-        max_reward=1,
-        min_reward=-1,
+        max_reward=None,
+        min_reward=-None,
     ):
         """
         Parameters
         ----------
         n_actions : int
             The number of actions that the agent can take.
-        
+
         ep_start : float
             The inital epsilon value in epsilon-greedy.
-        
+
         ep_end : float
             The final epsilon value in epsilon-greedy.
-        
+
         ep_endt : int
             The number of timesteps over which the inital value of epislon is linearly annealed to its final value.
-        
+
         lr : float
             The learning rate used by RMSProp.
         """
@@ -202,10 +248,10 @@ class DQNAgent:
         self.n_actions = n_actions
 
         # epsilon annealing
-        self.ep_start = ep # inital epsilon value
-        self.ep = self.ep_start # exploration probability
-        self.ep_end = ep_end # final epsilon value
-        self.ep_endt = ep_endt # the number of timesteps over which the inital value of epislon is linearly annealed to its final value
+        self.ep_start = ep  # inital epsilon value
+        self.ep = self.ep_start  # exploration probability
+        self.ep_end = ep_end  # final epsilon value
+        self.ep_endt = ep_endt  # the number of timesteps over which the inital value of epislon is linearly annealed to its final value
 
         # learning rate anealing
         # self.lr_start = lr
@@ -218,7 +264,7 @@ class DQNAgent:
         self.valid_size = valid_size
 
         # Q-learning paramters
-        self.discount = discount # discount factor
+        self.discount = discount  # discount factor
         self.update_freq = update_freq
         # number of points to replay per learning step
         self.n_replay = n_replay
@@ -233,6 +279,85 @@ class DQNAgent:
         # self.target_q = target_q
         # self.best_q = 0
 
+        self.transitions = TransitionTable(histLen=self.hist_len, maxSize=self.replay_memory)
+
+    def reset(self, state):
+        # TODO 9 Low-priority
+        pass
+
+    def preprocess(self, rawstate):  # DONE
+        state = np.mean(rawstate, axis=2, dtype=np.uint8)
+        state = state[::2, ::2]
+        # turn grayscale image to binary image
+        # _img = np.where(_img == 0, 0, 255).astype(np.uint8)
+        return state
+
+    def getQUpdate(self, s, a, r, s2, term):  # TODO 2
+        # The order of calls to forward is a bit odd
+        # in order to avoid unnecessary calls (we only need 2)
+
+        # delta = r + (1 - terminal) * gamma * max_a Q(s2, a) - Q(s, a)
+        term = (term * -1) + 1
+
+    def qLearnMinibatch(self):  # TODO 4
+        pass
+
+    def sample_validation_data(self):  # TODO 4
+        pass
+
+    def sample_validation_statistics(self):  # TODO 4
+        pass
+
+    def perceive(self, reward, rawstate, terminal, testing, testing_ep):  # TODO 1
+        state = self.preprocess(rawstate)
+
+        if self.max_reward is not None:
+            reward = math.min(reward, self.max_reward)
+
+        if self.min_reward is not None:
+            reward = math.max(reward, self.min_reward)
+
+        self.transitions.add_recent_state(state, terminal)
+
+    def eGreedy(self, state, testing_ep):  # TODO 3
+        pass
+
+    def greedy(self, state):  # TODO 6
+        pass
+
+    def createNetwork(self, input_shape=(105, 80, 4), n_actions=4):
+        model = keras.Sequential([
+            Conv2D(
+                filters=32,
+                kernel_size=8,
+                strides=4,
+                activation='relu',
+                input_shape=(*input_shape, ),
+                data_format='channels_last',
+            ),
+            Conv2D(
+                filters=64,
+                kernel_size=4,
+                strides=2,
+                activation='relu',
+            ),
+            Conv2D(
+                filters=64,
+                kernel_size=3,
+                strides=1,
+                activation='relu',
+            ),
+            Flatten(),
+            Dense(
+                units=512,
+                activation='relu',
+            ),
+            Dense(
+                units=n_actions,
+            ),
+        ])
+
+        return model
 
 
 if __name__ == "__main__":
@@ -263,4 +388,18 @@ if __name__ == "__main__":
     env = gym.make(env_name)
     n_actions = env.action_space.n
 
-    agent = DQNAgent()
+    agent = DQNAgent(
+        n_actions=n_actions,
+        ep_start=inital_exploration,
+        ep_end=final_exploration,
+        ep_endt=final_exploration_frame,
+        lr=learning_rate,
+        minibatch_size=minibatch_size,
+        discount=discount_factor,
+        update_freq=target_network_update_frequency,
+        learn_start=replay_start_size,
+        replay_memory=replay_memory_size,
+        hist_len=agent_history_length,
+        max_reward=1,
+        min_reward=-1,
+    )

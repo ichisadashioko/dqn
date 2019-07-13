@@ -1,5 +1,7 @@
 .ipynb_checkpoints
 __pycache__
+vscode
+vscode*
 
 *.swp
 *.pdf
@@ -8,3 +10,5 @@ timestamp.ipynb
 resampling.ipynb
 
 Breakout-v0
+
+deprecated
