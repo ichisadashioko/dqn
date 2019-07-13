@@ -12,7 +12,7 @@ import gym
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras.layers import Conv2D, Dense, Flatten
-from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.optimizers import RMSprop
 
 
 def time_now(micro=False):
@@ -190,7 +190,7 @@ class DQNMemory:
 
 
 class DQN:
-    def __init__(self, model=None, input_shape=(105, 80, 1), n_actions=4, lr=0.00001, discount_rate=0.8):
+    def __init__(self, model=None, input_shape=(105, 80, 1), n_actions=4, lr=0.001, discount_rate=0.8):
         self.input_shape = input_shape
         self.n_actions = n_actions
         self.lr = lr
@@ -198,17 +198,18 @@ class DQN:
 
         if model is None:
             self.model = self.create_keras_model(input_shape, n_actions)
-            optimizer = Adam(
-                learning_rate=self.lr,
-            )
-
-            self.model.compile(
-                optimizer=optimizer,
-                loss='mse',
-                metrics=['accuracy', ],
-            )
         else:
             self.model = model
+
+        optimizer = RMSprop(
+            learning_rate=self.lr,
+        )
+
+        self.model.compile(
+            optimizer=optimizer,
+            loss='mse',
+            metrics=['accuracy', ],
+        )
 
     def create_keras_model(self, input_shape, n_actions):
         model = keras.Sequential([
@@ -232,6 +233,10 @@ class DQN:
                 activation='relu',
             ),
             Flatten(),
+            Dense(
+                units=512,
+                activation='relu',
+            ),
             Dense(
                 units=n_actions,
             ),
@@ -269,7 +274,7 @@ class DQN:
         # copy the current Q-values
         target_q_values = state_q_values
         # modify the Q-value of the `action`
-        target_q_values[action] = reward + self.discount_rate * np.max(next_state_q_values)
+        target_q_values[action] = state_q_values[action] + reward + self.discount_rate * np.max(next_state_q_values)
         target_q_values = np.array([target_q_values])
         x = self.reshape_state(state)
         x = x / 255.0
@@ -309,10 +314,11 @@ class DQN:
         for t in range(len(action_list)):  # `t` : timestep
             a = action_list[t]  # action
             r = reward_list[t]  # reward
-            state_q_values[t, a] = r + self.discount_rate * np.max(next_state_q_values[t])
+            state_q_values[t, a] += r + self.discount_rate * np.max(next_state_q_values[t])
 
         state_batch = batch[:len(action_list)]
         self.model.fit(
             x=state_batch,
             y=state_q_values,
+            verbose=0,
         )

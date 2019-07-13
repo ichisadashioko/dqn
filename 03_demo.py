@@ -49,7 +49,9 @@ if __name__ == "__main__":
                 batch = batch / 255.0
                 action = np.argmax(agent.model.predict(batch)[0])
 
-                # print('action:', action)
+                if action == 0:
+                    action = 1
+                print('action:', action)
                 observation = env.step(action)
                 env.render()
 

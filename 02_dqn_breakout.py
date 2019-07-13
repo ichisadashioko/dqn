@@ -2,7 +2,6 @@ import os
 import time
 import math
 import random
-import threading
 
 from tqdm import tqdm
 
@@ -31,6 +30,8 @@ if __name__ == "__main__":
     else:
         agent = DQN(n_actions=n_actions)
 
+    agent.model.summary()
+
     dqn_memory = DQNMemory()
 
     num_episodes = 32
@@ -38,6 +39,7 @@ if __name__ == "__main__":
     min_epsilon = 0.4
     delta_epsilon = (max_epsilon - min_epsilon) / num_episodes
 
+    reward_log = []
     try:
         for episode in tqdm(range(num_episodes)):
             # for episode in range(num_episodes):
@@ -45,6 +47,7 @@ if __name__ == "__main__":
             eps_epsilon = max(eps_epsilon, min_epsilon)
 
             done = False
+            eps_reward = 0
             state = env.reset()
             state = process_state(state)
 
@@ -69,6 +72,7 @@ if __name__ == "__main__":
                 env.render()
 
                 new_state, reward, done, info = observation
+                eps_reward += reward
                 # process new state to reduce memory
                 new_state = process_state(new_state)
                 # add new observation to `dqn_memory`
@@ -79,6 +83,7 @@ if __name__ == "__main__":
 
                 # agent.update_q_values(_state, action, reward, _new_state)
             dqn_memory.end_eps()
+            reward_log.append(eps_reward)
             # update Q values at the end of the episode
             state_list, action_list, reward_list, next_state_list = dqn_memory.sample_memory()
             agent.replay_memory(state_list, action_list, reward_list, next_state_list)
@@ -93,3 +98,7 @@ if __name__ == "__main__":
 
     env.close()
     agent.model.save(model_filename)
+
+    reward_log = np.array(reward_log)
+    plt.plot(reward_log)
+    plt.show()
