@@ -70,10 +70,12 @@ def compile_model(model, lr=0.00025):
 class TransitionTable:
     def __init__(
         self,
+        stateDim=(105, 80),
         histLen=1,
         maxSize=1_000_000,
         bufferSize=1024,
     ):
+        self.stateDim = stateDim
         self.histLen = histLen
         self.maxSize = maxSize
         self.bufferSize = bufferSize
@@ -84,23 +86,25 @@ class TransitionTable:
         self.numEntries = 0
         self.insertIndex = 0
 
-        # TODO 1 pre-allocate (maxSize, dims) Tensors
-        self.s = []
-        self.a = []
-        self.r = []
-        self.t = []
+        # DONE pre-allocate (maxSize, dims) Tensors
+        self.s = np.zeros(shape=(self.maxSize, *self.stateDim), dtype=np.uint8)
+        self.a = np.zeros(self.maxSize, dtype=np.uint8)
+        self.r = np.zeros(self.maxSize, dtype=np.float32)
+        self.t = np.zeros(self.maxSize, dtype=np.uint8)
 
         # Tables for storing the last `histLen` states. They are used for constructing the most recent agent state more easily
         self.recent_s = []
         self.recent_a = []
         self.recent_t = []
 
-        # TODO 1 pre-allocate Tensors
-        self.buf_a = []
-        self.buf_r = []
-        self.buf_term = []
-        self.buf_s = []
-        self.buf_s2 = []
+        # DONE pre-allocate Tensors
+        s_size = (self.histLen, *self.stateDim) # TODO 3 consider between 'channels_first' or 'channels_last'
+        self.buf_a = np.zeros(self.bufferSize, dtype=np.uint8)
+        self.buf_r = np.zeros(self.bufferSize, dtype=np.float32)
+        self.buf_term = np.zeros(self.bufferSize, dtype=np.uint8)
+        # TODO 4 check the buffer shape before pass it to the model
+        self.buf_s = np.zeros(s_size, dtype=np.uint8)
+        self.buf_s2 = np.zeros(s_size, dtype=np.uint8)
 
     def reset(self):  # DONE
         self.numEntries = 0
