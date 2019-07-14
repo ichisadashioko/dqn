@@ -14,6 +14,8 @@ from tensorflow import keras
 from tensorflow.keras.layers import Conv2D, Dense, Flatten
 from tensorflow.keras.optimizers import RMSprop
 
+from TransitionTable import TransitionTable
+
 
 class DQNAgent:
     def __init__(
@@ -33,6 +35,7 @@ class DQNAgent:
         hist_len=1,
         max_reward=None,
         min_reward=-None,
+        network=None,
     ):
         """
         Parameters
@@ -61,13 +64,7 @@ class DQNAgent:
         self.ep_end = ep_end  # final epsilon value
         self.ep_endt = ep_endt  # the number of timesteps over which the inital value of epislon is linearly annealed to its final value
 
-        # learning rate anealing
-        # self.lr_start = lr
-        # self.lr = self.lr_start
-        # self.lr_end = lr_end
-        # self.lr_endt = lr_endt
         self.lr = lr
-        # self.wc = wc # L2 weight cost
         self.minibatch_size = minibatch_size
         self.valid_size = valid_size
 
@@ -84,13 +81,15 @@ class DQNAgent:
         self.max_reward = max_reward
         self.min_reward = min_reward
 
+        self.network = network if network else self.createNetwork(n_actions=n_actions)
+
         # create transition table
         self.transitions = TransitionTable(histLen=self.hist_len, maxSize=self.replay_memory)
 
         self.numSteps = 0  # number of perceived states
         self.lastState = None
         self.lastAction = None
-        # self.
+        self.lastTerminal = None
 
     def reset(self, state):
         # TODO 9 Low-priority
@@ -120,6 +119,19 @@ class DQNAgent:
         pass
 
     def perceive(self, reward, rawstate, terminal, testing=False, testing_ep=None):  # TODO 1
+        """
+        reward : number
+            The received reward from environment.
+
+        rawstate : ndarray
+            The game screen.
+
+        terminal : int
+            If the game end then `terminal = 1` else `terminal = 0`.
+
+        testing_ep : number
+            Testing epsilon value for the epsilon-greedy algorithm.
+        """
         # preprocess state
         state = self.preprocess(rawstate)
         # clip reward
@@ -137,13 +149,59 @@ class DQNAgent:
         if self.lastState and not testing:
             self.transitions.add(self.lastState, self.lastAction, reward, self.lastTerminal)
 
-    def eGreedy(self, state, testing_ep):  # TODO 3
-        pass
+        curState = self.transitions.get_recent()  # DONE (4, 105, 80)
+        curState = np.array([curState], dtype=np.uint8)
 
-    def greedy(self, state):  # TODO 6
-        pass
+        # select action
+        action = 0
+        if not terminal:
+            action = self.eGreedy(curState, testing_ep)
 
-    def createNetwork(self, input_shape=(105, 80, 4), n_actions=4):
+        # do some Q-learning updates
+        if (self.numSteps > self.learn_start) and (not testing) and (self.numSteps % self.update_freq == 0):
+            for i in range(self.n_replay):
+                self.qLearnMinibatch()
+
+        if not testing:
+            self.numSteps += 1
+
+        self.lastState = state
+        self.lastAction = action
+        self.lastTerminal = terminal
+
+        return action
+
+    def eGreedy(self, state, testing_ep=None):  # DONE 3
+        if testing_ep is None:
+            self.ep = self.ep_end + max(0, (self.ep_start - self.ep_end) * (self.ep_endt - max(0, self.numSteps - self.learn_start)) / self.ep_endt)
+        else:
+            self.ep = testing_ep
+
+        if random.random() < self.ep:
+            return random.randrange(0, self.n_actions)
+        else:
+            return self.greedy(state)
+
+    def greedy(self, state):  # DONE 6
+        q = self.network.predict(state)[0]
+        max_q = q[0]
+        best_a = [0]
+
+        # evaluate all other actions (with random tie-breaking)
+        for a in range(1, self.n_actions):
+            if q[a] > max_q:
+                best_a = [a]
+                max_q = q[a]
+            elif q[a] == max_q:
+                best_a.append(a)
+
+        r = random.randrange(0, len(best_a))
+
+        self.lastAction = best_a[r]
+
+        return best_a[r]
+
+    def createNetwork(self, input_shape=(4, 105, 80), n_actions=4):
         model = keras.Sequential([
             Conv2D(
                 filters=32,
@@ -151,7 +209,7 @@ class DQNAgent:
                 strides=4,
                 activation='relu',
                 input_shape=(*input_shape, ),
-                data_format='channels_last',
+                data_format='channels_first',
             ),
             Conv2D(
                 filters=64,

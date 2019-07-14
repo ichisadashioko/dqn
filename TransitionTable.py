@@ -7,13 +7,6 @@ from datetime import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 
-import gym
-
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras.layers import Conv2D, Dense, Flatten
-from tensorflow.keras.optimizers import RMSprop
-
 
 class TransitionTable:
     def __init__(
@@ -103,7 +96,7 @@ class TransitionTable:
 
         index = self.buf_ind
 
-    def concatFrames(self, index, use_recent=False):  # TODO 4
+    def concatFrames(self, index, use_recent=False):  # DONE 4
         """
         The `index` must not be the terminal state
         """
@@ -120,17 +113,15 @@ class TransitionTable:
         for fs_idx, i in enumerate(range(index, end_index)):
             fullstate[fs_idx] = np.copy(s[i])
 
-        # TODO 5 copy frames and zero-out un-related frames
+        # DONE 5 copy frames and zero-out un-related frames
         # Because all the episode frames is stack together, the below code is use to find the terminal state index (episode-seperator) and zero out all the frames after that index.
         zero_out = False
 
         for i in range(1, self.histLen):
             if not zero_out:
-                for j in range(-1, -2):
-                    idx = index + i + j
-                    if t[idx] == 1:
-                        zero_out = True
-                        break
+                idx = index + i
+                if t[idx] == 1:
+                    zero_out = True
 
             if zero_out:
                 fullstate[i] = np.zeros_like(fullstate[i].shape)
@@ -149,7 +140,7 @@ class TransitionTable:
 
     def get_recent(self):  # DONE
         # Assumes that the most recent state has been added, but the action has not
-        return self.concatFrames(1, True)
+        return self.concatFrames(0, True)
 
     def get(self, index):  # DONE
         s = self.concatFrames(index)
