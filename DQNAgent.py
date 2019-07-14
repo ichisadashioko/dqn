@@ -102,23 +102,71 @@ class DQNAgent:
         # _img = np.where(_img == 0, 0, 255).astype(np.uint8)
         return state
 
-    def getQUpdate(self, s, a, r, s2, term):  # TODO 2
+    def getQUpdate(self, s, a, r, s2, term):  # DOME 2
         # The order of calls to forward is a bit odd
         # in order to avoid unnecessary calls (we only need 2)
 
         # delta = r + (1 - terminal) * gamma * max_a Q(s2, a) - Q(s, a)
         term = (term * -1) + 1
 
-    def qLearnMinibatch(self):  # TODO 4
+        target_q_net = self.network
+
+        # compute max_a Q(s_2, a)
+        q2_max = np.max(target_q_net.predict(s2), axis=1)
+
+        # compute q2 = (1-terminal) * gamma * max_a Q(s2,a)
+        q2 = q2_max * self.discount
+        q2 = q2 * term
+
+        delta = r + q2
+
+        q_all = self.network.predict(s)
+        q = np.zeros(len(q_all), dtype=np.float32)
+        for i in range(len(q_all)):
+            q[i] = q_all[i][a[i]]
+
+        delta = delta + (q * -1)
+
+        targets = np.zeros(shape=(self.minibatch_size, self.n_actions), dtype=np.float32)
+        for i in range(min(self.minibatch_size, len(a))):
+            targets[i][a[i]] = delta[i]
+
+        return targets, delta, q2_max
+
+    def qLearnMinibatch(self):  # DONE 4
+        # perform a minibatch Q-learning update:
+        # w += alpha * (r + gamma max Q(s2,a2) - Q(s,a)) * dQ(s,a)/dw
+
+        # w = w + (gamma max Q(s2, a2) - Q(s,a)) # this is the label for Keras
+        assert self.transitions.size() > self.minibatch_size
+
+        s, a, r, s2, term = self.transitions.sample(self.minibatch_size)
+
+        targets, delta, q2_max = self.getQUpdate(s, a, r, s2, term)
+
+        # DONE 2 what is `targets, delta, q2_max`
+        # delta = r + (1-term) * gamma * max_a Q(s2, a) - Q(s, a)
+
+        # targets.shape = (batch_size, n_action)
+        # delta.shape = (batch_size)
+        # q2_max.shape = (batch_size)
+
+        self.network.fit(
+            x=s,
+            y=targets,
+            epochs=1,
+            batch_size=self.minibatch_size,
+        )
+
+    def sample_validation_data(self):  # TODO 8
+        # for validation
         pass
 
-    def sample_validation_data(self):  # TODO 4
+    def sample_validation_statistics(self):  # TODO 8
+        # for validation
         pass
 
-    def sample_validation_statistics(self):  # TODO 4
-        pass
-
-    def perceive(self, reward, rawstate, terminal, testing=False, testing_ep=None):  # TODO 1
+    def perceive(self, reward, rawstate, terminal, testing=False, testing_ep=None):  # DONE 1
         """
         reward : number
             The received reward from environment.

@@ -96,6 +96,8 @@ class TransitionTable:
 
         index = self.buf_ind
 
+        # TODO 3 only return a copy
+
     def concatFrames(self, index, use_recent=False):  # DONE 4
         """
         The `index` must not be the terminal state
