@@ -142,7 +142,7 @@ class DQNAgent:
 
         return targets, delta, q2_max
 
-    def qLearnMinibatch(self):  # DONE 4
+    def qLearnMinibatch(self, verbose=0):  # DONE 4
         # perform a minibatch Q-learning update:
         # w += alpha * (r + gamma max Q(s2,a2) - Q(s,a)) * dQ(s,a)/dw
 
@@ -165,6 +165,7 @@ class DQNAgent:
             y=targets,
             epochs=1,
             batch_size=self.minibatch_size,
+            verbose=verbose,
         )
 
     def sample_validation_data(self):  # TODO 9
@@ -175,7 +176,7 @@ class DQNAgent:
         # for validation
         pass
 
-    def perceive(self, reward, rawstate, terminal, testing=False, testing_ep=None):  # DONE 1
+    def perceive(self, reward, rawstate, terminal, testing=False, testing_ep=None, verbose=0):  # DONE 1
         """
         reward : number
             The received reward from environment.
@@ -217,7 +218,7 @@ class DQNAgent:
         # do some Q-learning updates
         if (self.numSteps > self.learn_start) and (not testing) and (self.numSteps % self.update_freq == 0):
             for i in range(self.n_replay):
-                self.qLearnMinibatch()
+                self.qLearnMinibatch(verbose=verbose)
 
         if not testing:
             self.numSteps += 1
@@ -241,6 +242,8 @@ class DQNAgent:
 
     def greedy(self, state):  # DONE 6
         q = self.network.predict(state / 255.0)[0]
+        # q = np.floor(q)
+        # print('Q:', q)
         max_q = q[0]
         best_a = [0]
 
