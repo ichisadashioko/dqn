@@ -41,12 +41,15 @@ class TransitionTable:
         self.recent_t = []
 
         # DONE pre-allocate Tensors
-        s_size = (self.histLen, *self.stateDim)  # TODO 3 consider between 'channels_first' or 'channels_last'
+        s_size = (self.histLen, *self.stateDim)  # DONE 3 consider between 'channels_first' or 'channels_last'
+        # use 'channels_first' because it is easier to construct array without having to reshape
         self.buf_a = np.zeros(self.bufferSize, dtype=np.uint8)
         self.buf_r = np.zeros(self.bufferSize, dtype=np.float32)
         self.buf_term = np.zeros(self.bufferSize, dtype=np.uint8)
-        # TODO 4 check the buffer shape before pass it to the model
-        self.buf_s = np.zeros(s_size, dtype=np.uint8)
+        # DONE 4 check the buffer shape before pass it to the model
+        # shape = (bufferSize, histLen, height, width)
+        # default = (1024, 4, 105, 80)
+        self.buf_s = np.zeros(shape=(self.bufferSize, *s_size), dtype=np.uint8)
         self.buf_s2 = np.zeros(s_size, dtype=np.uint8)
 
     def reset(self):  # DONE
@@ -59,7 +62,7 @@ class TransitionTable:
     def empty(self):  # DONE
         return self.numEntries == 0
 
-    def fill_buffer(self):  # TODO 3
+    def fill_buffer(self):  # DONE 3
         assert self.numEntries >= self.bufferSize
         # clear CPU buffers
         self.buf_ind = 1
@@ -72,9 +75,6 @@ class TransitionTable:
             self.buf_s2[buf_ind] = s2
             self.buf_term[buf_ind] = term
 
-        self.buf_s = self.buf_s / 255.0
-        self.buf_s2 = self.buf_s2 / 255.0
-
     def sample_one(self):  # TODO 3
         assert self.numEntries > 1
 
@@ -83,12 +83,13 @@ class TransitionTable:
             # start at the second index because of previous action
             index = random.randrange(1, self.numEntries - self.recentMemSize)
 
+            # TODO 3 why do we need to check `index + self.recentMemSize - 1` instead of `index`
             if self.t[index + self.recentMemSize - 1] == 0:
                 valid = True
 
         return self.get(index)
 
-    def sample(self, batch_size=1):  # TODO 4
+    def sample(self, batch_size=1):  # DONE 4
         assert batch_size < self.bufferSize
 
         if (self.buf_ind is None) or (self.buf_ind + batch_size) > self.bufferSize:
@@ -96,7 +97,19 @@ class TransitionTable:
 
         index = self.buf_ind
 
-        # TODO 3 only return a copy
+        self.buf_ind = self.buf_ind + batch_size
+
+        start = index
+        end = index + batch_size
+
+        # DONE 3 only return a copy
+        s = np.copy(self.buf_s[start:end])
+        a = np.copy(self.buf_a[start:end])
+        r = np.copy(self.buf_r[start:end])
+        term = np.copy(self.buf_term[start:end])
+        s2 = np.copy(self.buf_s2[start:end])
+
+        return s, a, r, s2, term
 
     def concatFrames(self, index, use_recent=False):  # DONE 4
         """
@@ -130,15 +143,8 @@ class TransitionTable:
 
         return fullstate
 
-    def concatActions(self, index, use_recent=False):  # TODO 4
-        act_hist = []
-        if use_recent:
-            a, t = self.recent_a, self.recent_t
-        else:
-            a, t = self.a, self.t
-
-        # zero out frames from all but the most recent episode
-        # TODO 5
+    def concatActions(self, index, use_recent=False):  # TODO 9
+        pass
 
     def get_recent(self):  # DONE
         # Assumes that the most recent state has been added, but the action has not
@@ -147,6 +153,8 @@ class TransitionTable:
     def get(self, index):  # DONE
         s = self.concatFrames(index)
         s2 = self.concatFrames(index + 1)
+        # TODO 3 what is `ar_index`
+        # why `ar_indxt = index + self.recentMemSize - 1`
         ar_index = index + self.recentMemSize - 1
 
         return s, self.a[ar_index], self.r[ar_index], s2, self.t[ar_index + 1]
@@ -171,10 +179,30 @@ class TransitionTable:
         else:
             self.t[self.insertIndex] = 0
 
-    def add_recent_state(self, s, term):  # TODO
+    def add_recent_state(self, s, term):  # DONE
         if len(self.recent_s) == 0:
             for i in range(self.recentMemSize):
-                pass
+                self.recent_s.append(np.zeros_like(s))
+                self.recent_t.append(0)
 
-    def add_recent_action(self, a):  # TODO
-        pass
+        self.recent_s.append(s)
+        if term:
+            self.recent_t.append(1)
+        else:
+            self.recent_t.append(0)
+
+        # keep recentMemSize states
+        if len(self.recent_t) > self.recentMemSize:
+            self.recent_s.pop(0)
+            self.recent_t.pop(0)
+
+    def add_recent_action(self, a):  # DONE
+        if len(self.recent_a) == 0:
+            for i in range(self.recentMemSize):
+                self.recent_a.append(0)
+
+        self.recent_a.append(a)
+
+        # keep recentMemSize steps
+        if len(self.recent_a) > self.recentMemSize:
+            self.recent_a.pop(0)

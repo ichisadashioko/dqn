@@ -112,7 +112,7 @@ class DQNAgent:
         target_q_net = self.network
 
         # compute max_a Q(s_2, a)
-        q2_max = np.max(target_q_net.predict(s2), axis=1)
+        q2_max = np.max(target_q_net.predict(s2 / 255.0), axis=1)
 
         # compute q2 = (1-terminal) * gamma * max_a Q(s2,a)
         q2 = q2_max * self.discount
@@ -120,7 +120,7 @@ class DQNAgent:
 
         delta = r + q2
 
-        q_all = self.network.predict(s)
+        q_all = self.network.predict(s / 255.0)
         q = np.zeros(len(q_all), dtype=np.float32)
         for i in range(len(q_all)):
             q[i] = q_all[i][a[i]]
@@ -152,17 +152,17 @@ class DQNAgent:
         # q2_max.shape = (batch_size)
 
         self.network.fit(
-            x=s,
+            x=(s / 255.0),
             y=targets,
             epochs=1,
             batch_size=self.minibatch_size,
         )
 
-    def sample_validation_data(self):  # TODO 8
+    def sample_validation_data(self):  # TODO 9
         # for validation
         pass
 
-    def sample_validation_statistics(self):  # TODO 8
+    def sample_validation_statistics(self):  # TODO 9
         # for validation
         pass
 
@@ -231,7 +231,7 @@ class DQNAgent:
             return self.greedy(state)
 
     def greedy(self, state):  # DONE 6
-        q = self.network.predict(state)[0]
+        q = self.network.predict(state / 255.0)[0]
         max_q = q[0]
         best_a = [0]
 
