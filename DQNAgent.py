@@ -34,7 +34,7 @@ class DQNAgent:
         replay_memory=1_000_000,
         hist_len=1,
         max_reward=None,
-        min_reward=-None,
+        min_reward=None,
         network=None,
     ):
         """
@@ -59,7 +59,7 @@ class DQNAgent:
         self.n_actions = n_actions
 
         # epsilon annealing
-        self.ep_start = ep  # inital epsilon value
+        self.ep_start = ep_start  # inital epsilon value
         self.ep = self.ep_start  # exploration probability
         self.ep_end = ep_end  # final epsilon value
         self.ep_endt = ep_endt  # the number of timesteps over which the inital value of epislon is linearly annealed to its final value
@@ -82,6 +82,7 @@ class DQNAgent:
         self.min_reward = min_reward
 
         self.network = network if network else self.createNetwork(n_actions=n_actions)
+        self.compile_model(self.network, self.lr)
 
         # create transition table
         self.transitions = TransitionTable(histLen=self.hist_len, maxSize=self.replay_memory)
@@ -90,6 +91,14 @@ class DQNAgent:
         self.lastState = None
         self.lastAction = None
         self.lastTerminal = None
+
+    def compile_model(self, model, lr=0.00025):
+        optimizer = RMSprop(lr=lr)
+        model.compile(
+            loss='mse',
+            optimizer=optimizer,
+            metrics=['accuracy', 'mse'],
+        )
 
     def reset(self, state):
         # TODO 9 Low-priority
@@ -184,17 +193,17 @@ class DQNAgent:
         state = self.preprocess(rawstate)
         # clip reward
         if self.max_reward is not None:
-            reward = math.min(reward, self.max_reward)
+            reward = min(reward, self.max_reward)
 
         if self.min_reward is not None:
-            reward = math.max(reward, self.min_reward)
+            reward = max(reward, self.min_reward)
 
         self.transitions.add_recent_state(state, terminal)
 
         currentFullState = self.transitions.get_recent()
 
         # store transition s, a, r, s'
-        if self.lastState and not testing:
+        if (self.lastState is not None) and not testing:
             self.transitions.add(self.lastState, self.lastAction, reward, self.lastTerminal)
 
         curState = self.transitions.get_recent()  # DONE (4, 105, 80)

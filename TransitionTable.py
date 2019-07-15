@@ -50,7 +50,7 @@ class TransitionTable:
         # shape = (bufferSize, histLen, height, width)
         # default = (1024, 4, 105, 80)
         self.buf_s = np.zeros(shape=(self.bufferSize, *s_size), dtype=np.uint8)
-        self.buf_s2 = np.zeros(s_size, dtype=np.uint8)
+        self.buf_s2 = np.zeros(shape=(self.bufferSize, *s_size), dtype=np.uint8)
 
     def reset(self):  # DONE
         self.numEntries = 0
@@ -69,6 +69,8 @@ class TransitionTable:
 
         for buf_ind in range(self.bufferSize):
             s, a, r, s2, term = self.sample_one()
+            # s.shape = (4, 105, 80)
+            # s2.shape = (4, 105, 80)
             self.buf_s[buf_ind] = s
             self.buf_a[buf_ind] = a
             self.buf_r[buf_ind] = r
@@ -139,7 +141,7 @@ class TransitionTable:
                     zero_out = True
 
             if zero_out:
-                fullstate[i] = np.zeros_like(fullstate[i].shape)
+                fullstate[i] = np.zeros_like(fullstate[i])
 
         return fullstate
 
