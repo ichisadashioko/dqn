@@ -75,8 +75,7 @@ if __name__ == "__main__":
     terminal = 0
 
     train_start = time.time()
-    while step < num_steps:
-        step += 1
+
     for step in tqdm(range(num_steps)):
         action = agent.perceive(reward, screen, terminal)
 
