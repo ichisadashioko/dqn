@@ -26,7 +26,7 @@ class DQNAgent:
         ep_endt=1_000_000,
         lr=0.00025,
         minibatch_size=1,
-        valid_size=500,
+        valid_size=512,
         discount=0.99,
         update_freq=1,
         n_replay=1,
@@ -92,6 +92,12 @@ class DQNAgent:
         self.lastAction = None
         self.lastTerminal = None
 
+        self.valid_s = None
+        self.valid_a = None
+        self.valid_r = None
+        self.valid_s2 = None
+        self.valid_term = None
+
     def compile_model(self, model, lr=0.00025):
         optimizer = RMSprop(lr=lr)
         model.compile(
@@ -112,33 +118,36 @@ class DQNAgent:
         return state
 
     def getQUpdate(self, s, a, r, s2, term):  # DOME 2
-        # The order of calls to forward is a bit odd
-        # in order to avoid unnecessary calls (we only need 2)
+        # merge `s` and `s2` together for one forward pass
 
-        # delta = r + (1 - terminal) * gamma * max_a Q(s2, a) - Q(s, a)
         term = (term * -1) + 1
 
         target_q_net = self.network
 
+        # `s` and `s2` have to have the same shape
+        assert s.shape == s2.shape
+        forward_batch = np.concatenate((s, s2), axis=0)
+
+        # I only scale values between [0..1] to reduce memory usage
+        q_batch = target_q_net.predict(forward_batch / 255.0)
+
+        mid_point = s.shape[0]
         # compute max_a Q(s_2, a)
-        q2_max = np.max(target_q_net.predict(s2 / 255.0), axis=1)
+        q2_max = np.max(q_batch[mid_point:], axis=1)
 
         # compute q2 = (1-terminal) * gamma * max_a Q(s2,a)
         q2 = q2_max * self.discount
         q2 = q2 * term
+        delta = q2 + r
 
-        delta = r + q2
+        q_all = q_batch[:mid_point]
 
-        q_all = self.network.predict(s / 255.0)
-        q = np.zeros(len(q_all), dtype=np.float32)
-        for i in range(len(q_all)):
-            q[i] = q_all[i][a[i]]
-
-        delta = delta + (q * -1)
-
-        targets = np.zeros(shape=(self.minibatch_size, self.n_actions), dtype=np.float32)
+        # TODO 2
+        # use predicted values as labels and only modify Q-values at action `a`
+        # instead of all zeros target
+        targets = q_all
         for i in range(min(self.minibatch_size, len(a))):
-            targets[i][a[i]] = delta[i]
+            targets[i][a[i]] = q_all[i][a[i]] + delta[i]
 
         return targets, delta, q2_max
 
@@ -146,18 +155,21 @@ class DQNAgent:
         # perform a minibatch Q-learning update:
         # w += alpha * (r + gamma max Q(s2,a2) - Q(s,a)) * dQ(s,a)/dw
 
-        # w = w + (gamma max Q(s2, a2) - Q(s,a)) # this is the label for Keras
+        # this is the label for our network
+        # the learning rate will be handled by the `optimizer`
+        # Q(s,a) = Q(s,a) + gamma * max Q(s2, a2)
+
         assert self.transitions.size() > self.minibatch_size
 
         s, a, r, s2, term = self.transitions.sample(self.minibatch_size)
 
         targets, delta, q2_max = self.getQUpdate(s, a, r, s2, term)
 
-        # DONE 2 what is `targets, delta, q2_max`
-        # delta = r + (1-term) * gamma * max_a Q(s2, a) - Q(s, a)
-
+        # DONE 2 what is `targets, q2_max`
+        # `targets = Q'(s)` with `Q'(s,a) = Q(s,a) + r + gamma * max_a Q(s2)`
         # targets.shape = (batch_size, n_action)
-        # delta.shape = (batch_size)
+
+        # `q2_max` is `max_a Q(s2)`
         # q2_max.shape = (batch_size)
 
         self.network.fit(
@@ -168,13 +180,27 @@ class DQNAgent:
             verbose=verbose,
         )
 
-    def sample_validation_data(self):  # TODO 9
+    def sample_validation_data(self):  # DONE 9
         # for validation
-        pass
+        s, a, r, s2, term = self.transitions.sample(self.valid_size)
+        self.valid_s = s
+        self.valid_a = a
+        self.valid_r = r
+        self.valid_s2 = s2
+        self.valid_term = term
 
-    def sample_validation_statistics(self):  # TODO 9
+    def compute_validation_statistics(self):  # TODO 9
         # for validation
-        pass
+        targets, delta, q2_max = self.getQUpdate(
+            s=self.valid_s,
+            a=self.valid_a,
+            r=self.valid_r,
+            s2=self.valid_s2,
+            term=self.valid_term,
+        )
+        avg_loss = delta.mean()
+        
+        return avg_loss
 
     def perceive(self, reward, rawstate, terminal, testing=False, testing_ep=None, verbose=0):  # DONE 1
         """

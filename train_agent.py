@@ -45,7 +45,7 @@ if __name__ == "__main__":
     final_exploration_frame = 1_000_000  # the number of frames over which the initial value of epsilon is linearly annealed to its final value
     replay_start_size = 20_000  # a uniform random policy is run for this number of frames before learning starts and the resulting experience is used to populate the replay memory
     # no_op_max = 30  # maximum number of "do nothing" actions to be performed by agent at the start of an episode
-
+    n_replay = 32 # number of times the agent replay memory each `update_frequecy`
     env_name = 'Breakout-v0'
     # general setup
     env = gym.make(env_name)
@@ -65,6 +65,7 @@ if __name__ == "__main__":
         hist_len=agent_history_length,
         max_reward=1,
         min_reward=-1,
+        n_replay=n_replay,
     )
 
     # configure model directory
@@ -96,8 +97,12 @@ if __name__ == "__main__":
             terminal = 0
 
         if step % target_network_update_frequency == 0:
-            w_filepath = f'{save_dir}/{env_name}_weights_{time_now()}.h5'
+            agent.sample_validation_data()
+            avg_loss = agent.compute_validation_statistics()
+            w_filepath = f'{save_dir}/{env_name}_weights_{time_now()}_loss_{avg_loss:.2f}.h5'
             agent.network.save_weights(w_filepath)
 
-    model_filepath = f'{save_dir}/{env_name}_model_{time_now()}.h5'
+    agent.sample_validation_data()
+    avg_loss = agent.compute_validation_statistics()
+    model_filepath = f'{save_dir}/{env_name}_model_{time_now()}_loss_{avg_loss:.2f}.h5'
     agent.network.save(model_filepath)
