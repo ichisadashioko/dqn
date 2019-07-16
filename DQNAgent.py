@@ -230,6 +230,9 @@ class DQNAgent:
         return action
 
     def eGreedy(self, state, testing_ep=None):  # DONE 3
+        """
+        testing_ep : testing epsilon
+        """
         if testing_ep is None:
             self.ep = self.ep_end + max(0, (self.ep_start - self.ep_end) * (self.ep_endt - max(0, self.numSteps - self.learn_start)) / self.ep_endt)
         else:
@@ -276,12 +279,14 @@ class DQNAgent:
                 kernel_size=4,
                 strides=2,
                 activation='relu',
+                data_format='channels_first',
             ),
             Conv2D(
                 filters=64,
                 kernel_size=3,
                 strides=1,
                 activation='relu',
+                data_format='channels_first',
             ),
             Flatten(),
             Dense(
