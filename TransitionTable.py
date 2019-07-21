@@ -41,12 +41,11 @@ class TransitionTable:
         self.recent_t = []
 
         # DONE pre-allocate Tensors
-        s_size = (self.histLen, *self.stateDim)  # DONE 3 consider between 'channels_first' or 'channels_last'
+        s_size = (self.histLen, *self.stateDim)
         # use 'channels_first' because it is easier to construct array without having to reshape
         self.buf_a = np.zeros(self.bufferSize, dtype=np.uint8)
         self.buf_r = np.zeros(self.bufferSize, dtype=np.float32)
         self.buf_term = np.zeros(self.bufferSize, dtype=np.uint8)
-        # DONE 4 check the buffer shape before pass it to the model
         # shape = (bufferSize, histLen, height, width)
         # default = (1024, 4, 105, 80)
         self.buf_s = np.zeros(shape=(self.bufferSize, *s_size), dtype=np.uint8)
@@ -115,7 +114,7 @@ class TransitionTable:
 
     def concatFrames(self, index, use_recent=False):  # DONE 4
         """
-        The `index` must not be the terminal state
+        The `index` must not be the terminal state.
         """
         if use_recent:
             s, t = self.recent_s, self.recent_t
@@ -131,15 +130,21 @@ class TransitionTable:
             fullstate[fs_idx] = np.copy(s[i])
 
         # DONE 5 copy frames and zero-out un-related frames
-        # Because all the episode frames is stack together, the below code is use to find the terminal state index (episode-seperator) and zero out all the frames after that index.
+        # Because all the episode frames is stack together, 
+        # the below code is use to find the terminal state index (episode-seperator) 
+        # and zero out all the frames after that index.
         zero_out = False
 
+        # start at the second frame
         for i in range(1, self.histLen):
             if not zero_out:
                 idx = index + i
+                # check terminal state
                 if t[idx] == 1:
                     zero_out = True
 
+            # after terminal state is comfirmed, 
+            # zero out frames starting at the terminal index
             if zero_out:
                 fullstate[i] = np.zeros_like(fullstate[i])
 

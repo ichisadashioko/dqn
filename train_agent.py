@@ -43,10 +43,12 @@ if __name__ == "__main__":
     inital_exploration = 1.0  # initial value of epsilon in epsilon-greedy exploration
     final_exploration = 0.1  # final value of epsilon in epsilon-greedy exploration
     final_exploration_frame = 1_000_000  # the number of frames over which the initial value of epsilon is linearly annealed to its final value
-    replay_start_size = 20_000  # a uniform random policy is run for this number of frames before learning starts and the resulting experience is used to populate the replay memory
+    replay_start_size = 5_000  # a uniform random policy is run for this number of frames before learning starts and the resulting experience is used to populate the replay memory
     # no_op_max = 30  # maximum number of "do nothing" actions to be performed by agent at the start of an episode
-    n_replay = 32 # number of times the agent replay memory each `update_frequecy`
-    env_name = 'Breakout-v0'
+    n_replay = 1  # number of times the agent replay memory each `update_frequecy`
+
+    # env_name = 'Breakout-v0'
+    env_name = 'Pong-v0'
     # general setup
     env = gym.make(env_name)
     n_actions = env.action_space.n
@@ -69,7 +71,7 @@ if __name__ == "__main__":
     )
 
     # configure model directory
-    save_dir = 'Breakout-v0'
+    save_dir = env_name
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     # training loop
@@ -80,8 +82,11 @@ if __name__ == "__main__":
     reward = 0
     terminal = 0
 
+    total_ep_reward = 0
+
     train_start = time.time()
     for step in tqdm(range(num_steps)):
+        total_ep_reward += reward
         action = agent.perceive(reward, screen, terminal)
 
         # game over? get next game!
@@ -92,13 +97,17 @@ if __name__ == "__main__":
             if done:
                 terminal = 1
         else:
+            print('Last episode reward:', total_ep_reward)
             screen = env.reset()
             reward = 0
             terminal = 0
 
-        if step % target_network_update_frequency == 0:
+            total_ep_reward = 0
+
+        if step % target_network_update_frequency == 0 and agent.transitions.numEntries > agent.transitions.bufferSize:
             agent.sample_validation_data()
             avg_loss = agent.compute_validation_statistics()
+            print('avg_loss:', avg_loss)
             w_filepath = f'{save_dir}/{env_name}_weights_{time_now()}_loss_{avg_loss:.2f}.h5'
             agent.network.save_weights(w_filepath)
 

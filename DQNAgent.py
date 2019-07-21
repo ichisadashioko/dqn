@@ -138,21 +138,21 @@ class DQNAgent:
         # compute q2 = (1-terminal) * gamma * max_a Q(s2,a)
         q2 = q2_max * self.discount
         q2 = q2 * term
-        delta = q2 + r
-
+        target = q2 + r
         q_all = q_batch[:mid_point]
 
         # TODO 2
         # use predicted values as labels and only modify Q-values at action `a`
         # instead of all zeros target
-        targets = q_all
+        target_f = q_all
         for i in range(min(self.minibatch_size, len(a))):
-            targets[i][a[i]] = q_all[i][a[i]] + delta[i]
+            target_f[i][a[i]] = target[i]
 
-        return targets, delta, q2_max
+        return target_f, target, q2_max
 
-    def qLearnMinibatch(self, verbose=0):  # DONE 4
-        # perform a minibatch Q-learning update:
+    def qLearnMinibatch(self, verbose=0):
+        # TODO accumulate losses instead of update rightaway
+        # Perform a minibatch Q-learning update:
         # w += alpha * (r + gamma max Q(s2,a2) - Q(s,a)) * dQ(s,a)/dw
 
         # this is the label for our network
@@ -199,7 +199,7 @@ class DQNAgent:
             term=self.valid_term,
         )
         avg_loss = delta.mean()
-        
+
         return avg_loss
 
     def perceive(self, reward, rawstate, terminal, testing=False, testing_ep=None, verbose=0):  # DONE 1
@@ -218,6 +218,7 @@ class DQNAgent:
         """
         # preprocess state
         state = self.preprocess(rawstate)
+
         # clip reward
         if self.max_reward is not None:
             reward = min(reward, self.max_reward)
@@ -233,7 +234,8 @@ class DQNAgent:
         if (self.lastState is not None) and not testing:
             self.transitions.add(self.lastState, self.lastAction, reward, self.lastTerminal)
 
-        curState = self.transitions.get_recent()  # DONE (4, 105, 80)
+        curState = self.transitions.get_recent()  # curState.shape == (4, 105, 80)
+        # convert to batch (1, 4, 105, 80)
         curState = np.array([curState], dtype=np.uint8)
 
         # select action
@@ -260,7 +262,10 @@ class DQNAgent:
         testing_ep : testing epsilon
         """
         if testing_ep is None:
-            self.ep = self.ep_end + max(0, (self.ep_start - self.ep_end) * (self.ep_endt - max(0, self.numSteps - self.learn_start)) / self.ep_endt)
+            ep_range = self.ep_start - self.ep_end
+            ep_prog = 1.0 - max(0, self.numSteps - self.learn_start) / self.ep_endt
+            ep_delta = ep_range * ep_prog
+            self.ep = self.ep_end + max(0, ep_delta)
         else:
             self.ep = testing_ep
 
@@ -271,8 +276,6 @@ class DQNAgent:
 
     def greedy(self, state):  # DONE 6
         q = self.network.predict(state / 255.0)[0]
-        # q = np.floor(q)
-        # print('Q:', q)
         max_q = q[0]
         best_a = [0]
 
@@ -283,11 +286,9 @@ class DQNAgent:
                 max_q = q[a]
             elif q[a] == max_q:
                 best_a.append(a)
-
+        # random tie-breaking
         r = random.randrange(0, len(best_a))
-
         self.lastAction = best_a[r]
-
         return best_a[r]
 
     def createNetwork(self, input_shape=(4, 105, 80), n_actions=4):
@@ -321,6 +322,7 @@ class DQNAgent:
             ),
             Dense(
                 units=n_actions,
+                activation='linear',
             ),
         ])
 
