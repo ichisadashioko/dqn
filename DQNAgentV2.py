@@ -131,3 +131,8 @@ class DQNAgent:
         model.summary()
 
         return model
+
+    def process_state(self, state):
+        s = state[::2, ::2, :]
+        s = np.mean(s, axis=2)
+        return s

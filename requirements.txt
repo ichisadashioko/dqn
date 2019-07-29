@@ -1,8 +1,7 @@
-atari-py
-gym
-matplotlib
-numpy
-opencv-python
-Pillow
-tensorflow-gpu==2.0.0a0
 tqdm
+numpy
+gym
+gym[atari]
+matplotlib
+opencv-python
+tensorflow-gpu==2.0.0-beta1

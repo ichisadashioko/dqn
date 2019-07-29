@@ -22,10 +22,16 @@ frame_skip = 4
 agent = DQNAgent(n_actions)
 
 # Training loop
-state = env.reset()
-terminal = 0
+terminal = 1
 
-# agent will take action every 4 frames
 for step in tqdm(range(num_steps)):
+    if terminal:
+        state = env.reset()
+
+    # agent will take action every `frame_skip` frames
     if step % frame_skip == 0:
         action = agent.perceive(state)
+
+    s2, reward, done, info = env.step(action)
+
+    terminal = 1 if done else 0
