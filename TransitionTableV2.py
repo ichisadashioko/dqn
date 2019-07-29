@@ -23,6 +23,12 @@ class TransitionTable:
         self.r = []
         self.t = []
 
+        # use recent buffer to get the latest state.
+        self.recent_s = []
+        self.recent_a = []
+        self.recent_r = []
+        self.recent_t = []
+
     def __len__(self):
         return min((len(self.s), len(self.a), len(self.r), len(self.t)))
 
