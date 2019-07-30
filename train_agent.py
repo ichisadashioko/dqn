@@ -84,7 +84,7 @@ if __name__ == "__main__":
 
     # training loop
     ep_reward_log = []
-    num_steps = 5_000_000
+    num_steps = 500_000
     step = 0
 
     screen = env.reset()

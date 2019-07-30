@@ -200,8 +200,11 @@ class DQNAgent:
 
         delta = []
         for i in range(len(a)):
+            # calculate losses (for validation purpose only)
             delta.append(target_q_values[i] - s_q_values[i][a[i]])
-            s_q_values[i][a[i]] = target_q_values[i]
+            # update target q values
+            # set all terminal state-action reward to 0
+            s_q_values[i][a[i]] = target_q_values[i] * ((term[i] - 1) + 1)
 
         delta = np.array(delta)
         return s_q_values, delta, s2_q_max
