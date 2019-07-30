@@ -47,8 +47,21 @@ if __name__ == "__main__":
     # no_op_max = 30  # maximum number of "do nothing" actions to be performed by agent at the start of an episode
     n_replay = 1  # number of times the agent replay memory each `update_frequecy`
 
-    # env_name = 'Breakout-v0'
-    env_name = 'Pong-v0'
+    env_name = 'Breakout-v0'
+    # env_name = 'Pong-v0'
+    
+    # configure model directory
+    save_dir = env_name
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    # load model to continue training (optional)
+    model = None
+    model_filename = f'{env_name}/{env_name}.h5'
+    if os.path.exists(model_filename):
+        model = tf.keras.models.load_model(model_filename)
+
+
     # general setup
     env = gym.make(env_name)
     n_actions = env.action_space.n
@@ -68,13 +81,11 @@ if __name__ == "__main__":
         max_reward=1,
         min_reward=-1,
         n_replay=n_replay,
+        network=model,
     )
 
-    # configure model directory
-    save_dir = env_name
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
     # training loop
+    ep_reward_log = []
     num_steps = 50_000
     step = 0
 
@@ -85,31 +96,44 @@ if __name__ == "__main__":
     total_ep_reward = 0
 
     train_start = time.time()
-    for step in tqdm(range(num_steps)):
-        total_ep_reward += reward
-        action = agent.perceive(reward, screen, terminal)
 
-        # game over? get next game!
-        if not terminal:
-            observation = env.step(action)
-            # env.render()
-            screen, reward, done, info = observation
-            if done:
-                terminal = 1
-        else:
-            print('Last episode reward:', total_ep_reward)
-            screen = env.reset()
-            reward = 0
-            terminal = 0
+    try:
+        for step in tqdm(range(num_steps)):
+            total_ep_reward += reward
+            action = agent.perceive(reward, screen, terminal)
 
-            total_ep_reward = 0
+            # game over? get next game!
+            if not terminal:
+                observation = env.step(action)
+                # env.render()
+                screen, reward, done, info = observation
+                if done:
+                    terminal = 1
+            else:
+                ep_reward_log.append(total_ep_reward)
+                # print('Last episode reward:', total_ep_reward)
+                screen = env.reset()
+                reward = 0
+                terminal = 0
 
-        if step % target_network_update_frequency == 0 and agent.transitions.numEntries > agent.transitions.bufferSize:
-            avg_loss = agent.compute_validation_statistics()
-            print('avg_loss:', avg_loss)
-            w_filepath = f'{save_dir}/{env_name}_weights_{time_now()}_loss_{avg_loss:.2f}.h5'
-            agent.network.save_weights(w_filepath)
+                total_ep_reward = 0
+
+            if step % target_network_update_frequency == 0 and agent.transitions.numEntries > agent.transitions.bufferSize:
+                avg_loss = agent.compute_validation_statistics()
+                print('avg_loss:', avg_loss)
+                w_filepath = f'{save_dir}/{env_name}_weights_{time_now()}_loss_{avg_loss:.2f}.h5'
+                agent.network.save_weights(w_filepath)
+
+    except KeyboardInterrupt:
+        pass
 
     avg_loss = agent.compute_validation_statistics()
     model_filepath = f'{save_dir}/{env_name}_model_{time_now()}_loss_{avg_loss:.2f}.h5'
     agent.network.save(model_filepath)
+
+    # save model in order to resume training
+    agent.network.save(model_filename)
+
+    np_reward_log = np.array(ep_reward_log)
+    plt.plot(np_reward_log)
+    plt.show()
