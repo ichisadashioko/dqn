@@ -35,7 +35,9 @@ if __name__ == "__main__":
     agent_history_length = 4  # the number of most recent frames experienced by agent that are given as input to the Q network
     action_repeat = 4  # repeat each action selected by the agent this many times. Using a value of 4 results in the agent seeing only every 4 input frame
 
-    env_name = 'Breakout-v0'
+    # env_name = 'Breakout-v0'
+    env_name = 'BreakoutNoFrameskip-v4'
+
     # general setup
     env = gym.make(env_name)
     n_actions = env.action_space.n

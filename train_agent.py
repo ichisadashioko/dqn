@@ -10,6 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import gym
+from gym.envs.registration import register
 
 import tensorflow as tf
 
@@ -38,14 +39,14 @@ if __name__ == "__main__":
     discount_factor = 0.99
     action_repeat = 4  # repeat each action selected by the agent this many times. Using a value of 4 results in the agent seeing only every 4 input frame
     update_frequency = 4  # the number of actions selected by the agent between successive SGD updates. Using a value of 4 results in the agent selecting 4 actions between each pair of successive updates
-    learning_rate = 0.00025
+    learning_rate = 0.001
     inital_exploration = 1.0  # initial value of epsilon in epsilon-greedy exploration
     final_exploration = 0.1  # final value of epsilon in epsilon-greedy exploration
     final_exploration_frame = 1_000_000  # the number of frames over which the initial value of epsilon is linearly annealed to its final value
     replay_start_size = 5_000  # a uniform random policy is run for this number of frames before learning starts and the resulting experience is used to populate the replay memory
 
-    env_name = 'Breakout-v0'
-    # env_name = 'Pong-v0'
+    # env_name = 'Breakout-v0'
+    env_name = 'BreakoutNoFrameskip-v4'
     
     # configure model directory
     save_dir = env_name
@@ -58,7 +59,6 @@ if __name__ == "__main__":
     if os.path.exists(model_filename):
         print('Loading saved model...')
         model = tf.keras.models.load_model(model_filename)
-
 
     # general setup
     env = gym.make(env_name)
@@ -84,7 +84,7 @@ if __name__ == "__main__":
 
     # training loop
     ep_reward_log = []
-    num_steps = 500_000
+    num_steps = 50_000
     step = 0
 
     screen = env.reset()

@@ -6,7 +6,7 @@ There are some different with the original implementation because of my need (ge
 
 There is a [colab ready notebook](colab_train_dqn.ipynb) that you can *Restart and run all*.
 
-# Limitations
+## Limitations
 
 1. Appereantly, the network does *not* converge.
 
@@ -27,3 +27,9 @@ After 1M time steps, all the final layers can barely see the ball.
 2. Training take too long.
 
 The currently implementation requires the network to update every time steps (after learning start).
+
+## References
+
+- [Human-level control through Deep Reinforcement Learning](https://deepmind.com/research/dqn/)
+
+- [Beat Atari with Deep Reinforcement Learning](https://becominghuman.ai/lets-build-an-atari-ai-part-1-dqn-df57e8ff3b26)
