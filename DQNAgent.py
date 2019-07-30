@@ -36,6 +36,7 @@ class DQNAgent:
         max_reward=None,
         min_reward=None,
         network=None,
+        action_repeat=4,
     ):
         """
         Parameters
@@ -111,6 +112,7 @@ class DQNAgent:
         self.valid_s2 = None
         self.valid_term = None
 
+        self.action_repeat = action_repeat
 
     def createNetwork(self, input_shape=(4, 105, 80), n_actions=4, lr=0.00025):
         model = keras.Sequential([
@@ -277,21 +279,23 @@ class DQNAgent:
         if (self.lastState is not None) and not testing:
             self.transitions.add(self.lastState,self.lastAction,reward,self.lastTerminal)
 
-        curState = self.transitions.get_recent()  # curState.shape == (4, 105, 80)
-        # convert to batch (1, 4, 105, 80)
-        curState = np.array([curState], dtype=np.uint8)
-
         # select action
         action = 0
-        if not terminal:
+        if not terminal and self.numSteps % self.action_repeat == 0:
+            curState = self.transitions.get_recent()  # curState.shape == (4, 105, 80)
+            # convert to batch (1, 4, 105, 80)
+            curState = np.array([curState], dtype=np.uint8)
+
             action = self.eGreedy(curState, testing_ep)
-
-        # do some Q-learning updates
-        if (self.numSteps > self.learn_start) and (not testing) and (self.numSteps % self.update_freq == 0):
-            for _ in range(self.n_replay):
-                self.qLearnMinibatch(verbose=verbose)
-
+        else:
+            action = self.lastAction
+        
         if not testing:
+            if (self.numSteps > self.learn_start) and (self.numSteps % self.update_freq == 0):
+                # do some Q-learning updates
+                for _ in range(self.n_replay):
+                    self.qLearnMinibatch(verbose=verbose)
+
             self.numSteps += 1
 
         self.lastState = state

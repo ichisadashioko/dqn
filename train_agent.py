@@ -36,7 +36,7 @@ if __name__ == "__main__":
     target_network_update_frequency = 10_000
     val_freq = target_network_update_frequency
     discount_factor = 0.99
-    # action_repeat = 4  # repeat each action selected by the agent this many times. Using a value of 4 results in the agent seeing only every 4 input frame
+    action_repeat = 4  # repeat each action selected by the agent this many times. Using a value of 4 results in the agent seeing only every 4 input frame
     update_frequency = 4  # the number of actions selected by the agent between successive SGD updates. Using a value of 4 results in the agent selecting 4 actions between each pair of successive updates
     learning_rate = 0.00025
     inital_exploration = 1.0  # initial value of epsilon in epsilon-greedy exploration
@@ -79,6 +79,7 @@ if __name__ == "__main__":
         max_reward=1,
         min_reward=-1,
         network=model,
+        action_repeat=action_repeat,
     )
 
     # training loop
