@@ -299,7 +299,7 @@ class DQNAgent:
                 for _ in range(self.n_replay):
                     self.qLearnMinibatch(verbose=verbose)
 
-            self.numSteps += 1
+        self.numSteps += 1
 
         self.lastState = state
         self.lastAction = action
@@ -322,9 +322,9 @@ class DQNAgent:
         if random.random() < self.ep:
             return random.randrange(0, self.n_actions)
         else:
-            return self.greedy(state)
+            return self.greedy(state, testing_ep)
 
-    def greedy(self, state):  # DONE 6
+    def greedy(self, state, testing=None):  # DONE 6
         q = self.network.predict(state / 255.0)[0]
         max_q = q[0]
         best_a = [0]
@@ -339,4 +339,10 @@ class DQNAgent:
         # random tie-breaking
         r = random.randrange(0, len(best_a))
         self.lastAction = best_a[r]
+
+        if testing is not None:
+            print(f'numSteps: {self.numSteps}')
+            print(f'action: {self.lastAction}')
+            print(q)
+
         return best_a[r]
