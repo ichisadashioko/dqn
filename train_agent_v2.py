@@ -26,7 +26,12 @@ terminal = 1
 
 for step in tqdm(range(num_steps)):
     if terminal:
+        # the state is first initialized here
         state = env.reset()
+        terminal = 0
+
+    state = agent.process_state(state)
+    agent.transitions.add_recent_state(state, terminal)
 
     # agent will take action every `frame_skip` frames
     if step % frame_skip == 0:
@@ -35,3 +40,6 @@ for step in tqdm(range(num_steps)):
     s2, reward, done, info = env.step(action)
 
     terminal = 1 if done else 0
+
+    # store transition
+    agent.transitions.add(state, action, reward, terminal)

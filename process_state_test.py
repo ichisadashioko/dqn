@@ -2,6 +2,7 @@
 from tqdm import tqdm
 
 import numpy as np
+import matplotlib.pyplot as plt
 import cv2
 import gym
 
@@ -45,6 +46,10 @@ for step in tqdm(range(num_steps)):
     k = cv2.waitKey(20) & 0xff
     if k == ord('q'):
         break
-
+    if k == ord('p'):
+        _state = _state / 255.0
+        print(f'min: {np.min(_state)}, max: {np.max(_state)}')
+        plt.imshow(_state)
+        plt.show()
     state = s2
 cv2.destroyAllWindows()

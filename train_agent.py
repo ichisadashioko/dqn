@@ -105,13 +105,11 @@ if __name__ == "__main__":
             total_ep_reward = 0
 
         if step % target_network_update_frequency == 0 and agent.transitions.numEntries > agent.transitions.bufferSize:
-            agent.sample_validation_data()
             avg_loss = agent.compute_validation_statistics()
             print('avg_loss:', avg_loss)
             w_filepath = f'{save_dir}/{env_name}_weights_{time_now()}_loss_{avg_loss:.2f}.h5'
             agent.network.save_weights(w_filepath)
 
-    agent.sample_validation_data()
     avg_loss = agent.compute_validation_statistics()
     model_filepath = f'{save_dir}/{env_name}_model_{time_now()}_loss_{avg_loss:.2f}.h5'
     agent.network.save(model_filepath)

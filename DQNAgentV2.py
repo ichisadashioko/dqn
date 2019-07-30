@@ -78,7 +78,9 @@ class DQNAgent:
             action = self.greedy(state)
 
         if self.numSteps > self.learn_start:
+            # TODO update Q-values
             pass
+
         self.numSteps += 1
         return action
 
@@ -135,4 +137,4 @@ class DQNAgent:
     def process_state(self, state):
         s = state[::2, ::2, :]
         s = np.mean(s, axis=2)
-        return s
+        return s.astype(np.uint8)

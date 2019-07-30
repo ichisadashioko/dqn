@@ -121,67 +121,50 @@ class DQNAgent:
         # merge `s` and `s2` together for one forward pass
 
         term = (term * -1) + 1
-
-        target_q_net = self.network
-
         # `s` and `s2` have to have the same shape
         assert s.shape == s2.shape
         forward_batch = np.concatenate((s, s2), axis=0)
 
-        # I only scale values between [0..1] to reduce memory usage
-        q_batch = target_q_net.predict(forward_batch / 255.0)
-
+        # I only scale values between [0..1] at the last step to reduce memory usage
+        forward_batch = forward_batch / 255.0
+        q_batch = self.network.predict(forward_batch)
         mid_point = s.shape[0]
+
+        s_q_values = q_batch[:mid_point]
+        s2_q_values = q_batch[mid_point:]
+
         # compute max_a Q(s_2, a)
-        q2_max = np.max(q_batch[mid_point:], axis=1)
+        s2_q_max = np.max(s2_q_values, axis=1)
 
-        # compute q2 = (1-terminal) * gamma * max_a Q(s2,a)
-        q2 = q2_max * self.discount
-        q2 = q2 * term
-        target = q2 + r
-        q_all = q_batch[:mid_point]
+        target_q_values = s2_q_max * self.discount
+        target_q_values = target_q_values + r
 
-        # TODO 2
-        # use predicted values as labels and only modify Q-values at action `a`
-        # instead of all zeros target
-        target_f = q_all
-        for i in range(min(self.minibatch_size, len(a))):
-            target_f[i][a[i]] = target[i]
+        delta = []
+        for i in range(len(a)):
+            delta.append(target_q_values[i] - s_q_values[i][a[i]])
+            s_q_values[i][a[i]] = target_q_values[i]
 
-        return target_f, target, q2_max
+        delta = np.array(delta)
+        return s_q_values, delta, s2_q_max
 
     def qLearnMinibatch(self, verbose=0):
         # TODO accumulate losses instead of update rightaway
         # Perform a minibatch Q-learning update:
-        # w += alpha * (r + gamma max Q(s2,a2) - Q(s,a)) * dQ(s,a)/dw
-
-        # this is the label for our network
-        # the learning rate will be handled by the `optimizer`
-        # Q(s,a) = Q(s,a) + gamma * max Q(s2, a2)
-
         assert self.transitions.size() > self.minibatch_size
 
         s, a, r, s2, term = self.transitions.sample(self.minibatch_size)
-
-        targets, delta, q2_max = self.getQUpdate(s, a, r, s2, term)
-
-        # DONE 2 what is `targets, q2_max`
-        # `targets = Q'(s)` with `Q'(s,a) = Q(s,a) + r + gamma * max_a Q(s2)`
-        # targets.shape = (batch_size, n_action)
-
-        # `q2_max` is `max_a Q(s2)`
-        # q2_max.shape = (batch_size)
+        target_q_values, delta, s2_q_max = self.getQUpdate(s, a, r, s2, term)
 
         self.network.fit(
             x=(s / 255.0),
-            y=targets,
+            y=target_q_values,
             epochs=1,
             batch_size=self.minibatch_size,
             verbose=verbose,
         )
 
     def sample_validation_data(self):  # DONE 9
-        # for validation
+        # sample data for validation
         s, a, r, s2, term = self.transitions.sample(self.valid_size)
         self.valid_s = s
         self.valid_a = a
@@ -189,9 +172,13 @@ class DQNAgent:
         self.valid_s2 = s2
         self.valid_term = term
 
-    def compute_validation_statistics(self):  # TODO 9
+    def compute_validation_statistics(self):  # DONE 9
+        # We only sample validation data once to reduce computation.
+        if self.valid_s is None:
+            self.sample_validation_data()
+
         # for validation
-        targets, delta, q2_max = self.getQUpdate(
+        target_q_values, delta, s2_q_max = self.getQUpdate(
             s=self.valid_s,
             a=self.valid_a,
             r=self.valid_r,
@@ -228,11 +215,9 @@ class DQNAgent:
 
         self.transitions.add_recent_state(state, terminal)
 
-        currentFullState = self.transitions.get_recent()
-
         # store transition s, a, r, s'
         if (self.lastState is not None) and not testing:
-            self.transitions.add(self.lastState, self.lastAction, reward, self.lastTerminal)
+            self.transitions.add(self.lastState,self.lastAction,reward,self.lastTerminal)
 
         curState = self.transitions.get_recent()  # curState.shape == (4, 105, 80)
         # convert to batch (1, 4, 105, 80)
@@ -245,7 +230,7 @@ class DQNAgent:
 
         # do some Q-learning updates
         if (self.numSteps > self.learn_start) and (not testing) and (self.numSteps % self.update_freq == 0):
-            for i in range(self.n_replay):
+            for _ in range(self.n_replay):
                 self.qLearnMinibatch(verbose=verbose)
 
         if not testing:
