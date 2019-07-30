@@ -14,15 +14,15 @@ After 1M time steps, all the final layers can barely see the ball.
 
 - First convolutional layer output:
 
-![](conv2d_display_grid.png)
+![](images/conv2d_display_grid.png)
 
 - Second convolutional layer output:
 
-![](conv2d_1_display_grid.png)
+![](images/conv2d_1_display_grid.png)
 
 - Third convolutional layer output:
 
-![](conv2d_2_display_grid.png)
+![](images/conv2d_2_display_grid.png)
 
 2. Training take too long.
 
