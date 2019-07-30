@@ -30,22 +30,19 @@ def time_now(micro=False):
 if __name__ == "__main__":
 
     # hyperparamters
-    minibatch_size = 32  # number of training cases over which each stochastic gradient descent (SGD) update is computed
-    replay_memory_size = 100_000  # SGD updates are sampled from this number of most recent frames
-    agent_history_length = 4  # the number of most recent frames experienced by agent that are given as input to the Q network
-    target_network_update_frequency = 10_000  # the freuquency (measured in the number of parameter updates) with which the target netwrok is updated (this corresponds to the parameter C from Algorithm 1)
-    discount_factor = 0.99  # discount factor gamma used in the Q-learning update
+    minibatch_size = 32
+    replay_memory_size = 200_000
+    agent_history_length = 4
+    target_network_update_frequency = 10_000
+    val_freq = target_network_update_frequency
+    discount_factor = 0.99
     # action_repeat = 4  # repeat each action selected by the agent this many times. Using a value of 4 results in the agent seeing only every 4 input frame
     update_frequency = 4  # the number of actions selected by the agent between successive SGD updates. Using a value of 4 results in the agent selecting 4 actions between each pair of successive updates
-    learning_rate = 0.00025  # the learning rate used by RMSProp
-    # gradient_momentum = 0.95  # squared gradient (denominator) momentum used by RMSProp
-    # min_squared_gradient = 0.01  # constant added to the squared gradient in the denominator of the RMSProp update
+    learning_rate = 0.00025
     inital_exploration = 1.0  # initial value of epsilon in epsilon-greedy exploration
     final_exploration = 0.1  # final value of epsilon in epsilon-greedy exploration
     final_exploration_frame = 1_000_000  # the number of frames over which the initial value of epsilon is linearly annealed to its final value
     replay_start_size = 5_000  # a uniform random policy is run for this number of frames before learning starts and the resulting experience is used to populate the replay memory
-    # no_op_max = 30  # maximum number of "do nothing" actions to be performed by agent at the start of an episode
-    n_replay = 1  # number of times the agent replay memory each `update_frequecy`
 
     env_name = 'Breakout-v0'
     # env_name = 'Pong-v0'
@@ -59,6 +56,7 @@ if __name__ == "__main__":
     model = None
     model_filename = f'{env_name}/{env_name}.h5'
     if os.path.exists(model_filename):
+        print('Loading saved model...')
         model = tf.keras.models.load_model(model_filename)
 
 
@@ -80,13 +78,12 @@ if __name__ == "__main__":
         hist_len=agent_history_length,
         max_reward=1,
         min_reward=-1,
-        n_replay=n_replay,
         network=model,
     )
 
     # training loop
     ep_reward_log = []
-    num_steps = 50_000
+    num_steps = 5_000_000
     step = 0
 
     screen = env.reset()
@@ -118,21 +115,26 @@ if __name__ == "__main__":
 
                 total_ep_reward = 0
 
-            if step % target_network_update_frequency == 0 and agent.transitions.numEntries > agent.transitions.bufferSize:
+            if step % target_network_update_frequency == 0:
+                # update the target network weights
+                # agent.target_network.load_weights(agent.network.get_weights())
+                agent.copy_weights(agent.network, agent.target_network)
+
+            if step % val_freq == 0 and agent.transitions.numEntries > agent.transitions.bufferSize:
                 avg_loss = agent.compute_validation_statistics()
                 print('avg_loss:', avg_loss)
                 w_filepath = f'{save_dir}/{env_name}_weights_{time_now()}_loss_{avg_loss:.2f}.h5'
-                agent.network.save_weights(w_filepath)
+                agent.target_network.save_weights(w_filepath)
 
     except KeyboardInterrupt:
         pass
 
     avg_loss = agent.compute_validation_statistics()
     model_filepath = f'{save_dir}/{env_name}_model_{time_now()}_loss_{avg_loss:.2f}.h5'
-    agent.network.save(model_filepath)
+    agent.target_network.save(model_filepath)
 
     # save model in order to resume training
-    agent.network.save(model_filename)
+    agent.target_network.save(model_filename)
 
     np_reward_log = np.array(ep_reward_log)
     plt.plot(np_reward_log)

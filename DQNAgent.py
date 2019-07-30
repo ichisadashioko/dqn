@@ -81,8 +81,21 @@ class DQNAgent:
         self.max_reward = max_reward
         self.min_reward = min_reward
 
-        self.network = network if network else self.createNetwork(n_actions=n_actions)
-        self.compile_model(self.network, self.lr)
+        if network:
+            self.target_network = network
+        else:
+            self.target_network = self.createNetwork(
+                n_actions=self.n_actions,
+                lr=self.lr,
+            )
+        
+        self.network = self.createNetwork(
+            n_actions=self.n_actions,
+            lr=self.lr,
+        )
+
+        # self.network.load_weights(self.target_network.get_weights())
+        self.copy_weights(self.target_network, self.network)
 
         # create transition table
         self.transitions = TransitionTable(histLen=self.hist_len, maxSize=self.replay_memory)
@@ -98,13 +111,56 @@ class DQNAgent:
         self.valid_s2 = None
         self.valid_term = None
 
-    def compile_model(self, model, lr=0.00025):
+
+    def createNetwork(self, input_shape=(4, 105, 80), n_actions=4, lr=0.00025):
+        model = keras.Sequential([
+            Conv2D(
+                filters=32,
+                kernel_size=8,
+                strides=4,
+                activation='relu',
+                input_shape=(*input_shape, ),
+                data_format='channels_first',
+            ),
+            Conv2D(
+                filters=64,
+                kernel_size=4,
+                strides=2,
+                activation='relu',
+                data_format='channels_first',
+            ),
+            Conv2D(
+                filters=64,
+                kernel_size=3,
+                strides=1,
+                activation='relu',
+                data_format='channels_first',
+            ),
+            Flatten(),
+            Dense(
+                units=512,
+                activation='relu',
+            ),
+            Dense(
+                units=n_actions,
+                activation='linear',
+            ),
+        ])
+
         optimizer = RMSprop(lr=lr)
+
         model.compile(
             loss='mse',
             optimizer=optimizer,
             metrics=['accuracy', 'mse'],
         )
+
+        return model
+
+    def copy_weights(self, a, b):
+        temp_weights_filename = 'temp_weights.h5'
+        a.save_weights(temp_weights_filename)
+        b.load_weights(temp_weights_filename)
 
     def reset(self, state):
         # TODO 9 Low-priority
@@ -127,7 +183,8 @@ class DQNAgent:
 
         # I only scale values between [0..1] at the last step to reduce memory usage
         forward_batch = forward_batch / 255.0
-        q_batch = self.network.predict(forward_batch)
+        # We use the target_network to predict the Q-values
+        q_batch = self.target_network.predict(forward_batch)
         mid_point = s.shape[0]
 
         s_q_values = q_batch[:mid_point]
@@ -155,6 +212,7 @@ class DQNAgent:
         s, a, r, s2, term = self.transitions.sample(self.minibatch_size)
         target_q_values, delta, s2_q_max = self.getQUpdate(s, a, r, s2, term)
 
+        # We update the unstable network.
         self.network.fit(
             x=(s / 255.0),
             y=target_q_values,
@@ -275,40 +333,3 @@ class DQNAgent:
         r = random.randrange(0, len(best_a))
         self.lastAction = best_a[r]
         return best_a[r]
-
-    def createNetwork(self, input_shape=(4, 105, 80), n_actions=4):
-        model = keras.Sequential([
-            Conv2D(
-                filters=32,
-                kernel_size=8,
-                strides=4,
-                activation='relu',
-                input_shape=(*input_shape, ),
-                data_format='channels_first',
-            ),
-            Conv2D(
-                filters=64,
-                kernel_size=4,
-                strides=2,
-                activation='relu',
-                data_format='channels_first',
-            ),
-            Conv2D(
-                filters=64,
-                kernel_size=3,
-                strides=1,
-                activation='relu',
-                data_format='channels_first',
-            ),
-            Flatten(),
-            Dense(
-                units=512,
-                activation='relu',
-            ),
-            Dense(
-                units=n_actions,
-                activation='linear',
-            ),
-        ])
-
-        return model
