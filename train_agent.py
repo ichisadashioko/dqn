@@ -12,6 +12,8 @@ import matplotlib.pyplot as plt
 import gym
 from gym.envs.registration import register
 
+# disable TensorFlow logs
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 
 from DQNAgent import DQNAgent
@@ -84,7 +86,8 @@ if __name__ == "__main__":
 
     # training loop
     ep_reward_log = []
-    num_steps = 50_000
+    # 100.0 fps on GTX 1050 (mobile) - utilize ~24%
+    num_steps = 360_000
     step = 0
 
     screen = env.reset()

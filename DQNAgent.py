@@ -178,7 +178,7 @@ class DQNAgent:
     def getQUpdate(self, s, a, r, s2, term):  # DOME 2
         # merge `s` and `s2` together for one forward pass
 
-        term = (term * -1) + 1
+        _term = (term * -1) + 1
         # `s` and `s2` have to have the same shape
         assert s.shape == s2.shape
         forward_batch = np.concatenate((s, s2), axis=0)
@@ -199,12 +199,19 @@ class DQNAgent:
         target_q_values = target_q_values + r
 
         delta = []
+        
+        # TODO action mask
+        # target_labels = np.zeros_like(s_q_values)
+
         for i in range(len(a)):
             # calculate losses (for validation purpose only)
             delta.append(target_q_values[i] - s_q_values[i][a[i]])
             # update target q values
             # set all terminal state-action reward to 0
-            s_q_values[i][a[i]] = target_q_values[i] * ((term[i] - 1) + 1)
+            s_q_values[i][a[i]] = target_q_values[i] * _term[i]
+
+            # TODO action mask
+            # target_labels[i][a[i]] =  target_q_values[i] * _term[i]
 
         delta = np.array(delta)
         return s_q_values, delta, s2_q_max
