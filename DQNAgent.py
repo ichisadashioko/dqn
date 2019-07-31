@@ -193,24 +193,23 @@ class DQNAgent:
 
         delta = []
 
-        # TODO action mask
-        # target_labels = np.zeros_like(s_q_values)
+        # TODO: action mask
+        target_labels = np.zeros_like(s_q_values)
 
         for i in range(len(a)):
             # calculate losses (for validation purpose only)
-            delta.append(target_q_values[i] - s_q_values[i][a[i]])
+            loss = target_q_values[i] - s_q_values[i][a[i]]
+            delta.append(loss)
+
             # update target q values
             # set all terminal state-action reward to 0
-            s_q_values[i][a[i]] = target_q_values[i] * _term[i]
-
-            # TODO action mask
-            # target_labels[i][a[i]] =  target_q_values[i] * _term[i]
+            # TODO: action mask
+            target_labels[i][a[i]] = target_q_values[i] * _term[i]
 
         delta = np.array(delta)
-        return s_q_values, delta, s2_q_max
+        return target_labels, delta, s2_q_max
 
     def qLearnMinibatch(self, verbose=0):
-        # TODO accumulate losses instead of update rightaway
         # Perform a minibatch Q-learning update:
         assert self.transitions.size() > self.minibatch_size
 
@@ -256,19 +255,6 @@ class DQNAgent:
         self, reward, rawstate, terminal,
         testing=False, testing_ep=None, verbose=0,
     ):
-        """
-        reward : number
-            The received reward from environment.
-
-        rawstate : ndarray
-            The game screen.
-
-        terminal : int
-            If the game end then `terminal = 1` else `terminal = 0`.
-
-        testing_ep : number
-            Testing epsilon value for the epsilon-greedy algorithm.
-        """
         # preprocess state
         state = self.preprocess(rawstate)
 

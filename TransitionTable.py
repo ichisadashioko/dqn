@@ -168,34 +168,29 @@ class TransitionTable:
         # but the action has not
         return self.concatFrames(0, True)
 
-    def get(self, index):  # DONE
+    def get(self, index):
         s = self.concatFrames(index)
         s2 = self.concatFrames(index + 1)
         # TODO 3 what is ar_index
-        # why ar_index = index + self.recentMemSize - 1
-        ar_index = index + self.recentMemSize - 1
+        # why ar_index = index + self.recentMemSize
+        ar_index = index + self.recentMemSize
 
         return s, self.a[ar_index], self.r[ar_index], s2, self.t[ar_index + 1]
 
-    def add(self, s, a, r, term):  # DONE
+    def add(self, s, a, r, term):
         # Increment until at full capacity
         if self.numEntries < self.maxSize:
             self.numEntries += 1
 
-        # Always insert at next index, then wrap around
-        self.insertIndex += 1
-        # Overwrite oldest experience once at capacity
-        if self.insertIndex >= self.maxSize:
-            self.insertIndex = 0
+        self.insertIndex %= self.maxSize
 
         # Overwrite (s, a, r, t) at `insertIndex`
         self.s[self.insertIndex] = s
         self.a[self.insertIndex] = a
         self.r[self.insertIndex] = r
-        if term:
-            self.t[self.insertIndex] = 1
-        else:
-            self.t[self.insertIndex] = 0
+        self.t[self.insertIndex] = term
+
+        self.insertIndex += 1
 
     def add_recent_state(self, s, term):  # DONE
         if len(self.recent_s) == 0:
@@ -204,10 +199,7 @@ class TransitionTable:
                 self.recent_t.append(0)
 
         self.recent_s.append(s)
-        if term:
-            self.recent_t.append(1)
-        else:
-            self.recent_t.append(0)
+        self.recent_t.append(term)
 
         # keep recentMemSize states
         if len(self.recent_t) > self.recentMemSize:

@@ -108,8 +108,7 @@ if __name__ == "__main__":
                 observation = env.step(action)
                 # env.render()
                 screen, reward, done, info = observation
-                if done:
-                    terminal = 1
+                terminal = 1 if done else 0
             else:
                 ep_reward_log.append(total_ep_reward)
                 # print('Last episode reward:', total_ep_reward)
@@ -121,7 +120,6 @@ if __name__ == "__main__":
 
             if step % target_network_update_frequency == 0:
                 # update the target network weights
-                # agent.target_network.load_weights(agent.network.get_weights())
                 agent.copy_weights(agent.network, agent.target_network)
 
             if step % val_freq == 0 and agent.transitions.numEntries > agent.transitions.bufferSize:
