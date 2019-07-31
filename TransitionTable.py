@@ -27,29 +27,33 @@ class TransitionTable:
         self.numEntries = 0
         self.insertIndex = 0
 
-        # The original implementation has multiple `histType`, we are going to use 'linear' only. Because of that, there is no `histIndices`
+        # The original implementation has multiple `histType`,
+        # we are going to use 'linear' only. Because of that,
+        # there is no `histIndices`
 
         # DONE pre-allocate (maxSize, dims) Tensors
-        self.s = np.zeros(shape=(self.maxSize, *self.stateDim), dtype=np.uint8)
+        self.s = np.zeros((self.maxSize, *self.stateDim), dtype=np.uint8)
         self.a = np.zeros(self.maxSize, dtype=np.uint8)
         self.r = np.zeros(self.maxSize, dtype=np.float32)
         self.t = np.zeros(self.maxSize, dtype=np.uint8)
 
-        # Tables for storing the last `histLen` states. They are used for constructing the most recent agent state more easily
+        # Tables for storing the last `histLen` states.
+        # They are used for constructing the most recent agent state easier
         self.recent_s = []
         self.recent_a = []
         self.recent_t = []
 
         # DONE pre-allocate Tensors
         s_size = (self.histLen, *self.stateDim)
-        # use 'channels_first' because it is easier to construct array without having to reshape
+        # use 'channels_first' because it is easier to construct array
+        # without having to reshape
         self.buf_a = np.zeros(self.bufferSize, dtype=np.uint8)
         self.buf_r = np.zeros(self.bufferSize, dtype=np.float32)
         self.buf_term = np.zeros(self.bufferSize, dtype=np.uint8)
         # shape = (bufferSize, histLen, height, width)
         # default = (1024, 4, 105, 80)
-        self.buf_s = np.zeros(shape=(self.bufferSize, *s_size), dtype=np.uint8)
-        self.buf_s2 = np.zeros(shape=(self.bufferSize, *s_size), dtype=np.uint8)
+        self.buf_s = np.zeros((self.bufferSize, *s_size), dtype=np.uint8)
+        self.buf_s2 = np.zeros((self.bufferSize, *s_size), dtype=np.uint8)
 
     def reset(self):  # DONE
         self.numEntries = 0
@@ -64,7 +68,7 @@ class TransitionTable:
     def fill_buffer(self):  # DONE 3
         assert self.numEntries >= self.bufferSize
         # clear CPU buffers
-        self.buf_ind = 1
+        self.buf_ind = 0
 
         for buf_ind in range(self.bufferSize):
             s, a, r, s2, term = self.sample_one()
@@ -84,31 +88,37 @@ class TransitionTable:
             # start at the second index because of previous action
             index = random.randrange(1, self.numEntries - self.recentMemSize)
 
-            # TODO 3 why do we need to check `index + self.recentMemSize - 1` instead of `index`
+            # TODO 3 why do we need to check `index + self.recentMemSize - 1`
+            # instead of `index`
             if self.t[index + self.recentMemSize - 1] == 0:
                 valid = True
 
         return self.get(index)
 
     def sample(self, batch_size=1):  # DONE 4
-        assert batch_size < self.bufferSize
+        """
+        Sample `batch_size` samples from the buffers.
+
+        The buffers is filled if they are empty
+        or the remained unseen samples (indicated by `buf_ind`)
+        is less than `batch_size`.
+        """
+        assert batch_size <= self.bufferSize
 
         if (self.buf_ind is None) or (self.buf_ind + batch_size) > self.bufferSize:
             self.fill_buffer()
 
-        index = self.buf_ind
+        start = self.buf_ind
+        end = start + batch_size
 
+        # mark seen sample index
         self.buf_ind = self.buf_ind + batch_size
 
-        start = index
-        end = index + batch_size
-
-        # DONE 3 only return a copy
-        s = np.copy(self.buf_s[start:end])
-        a = np.copy(self.buf_a[start:end])
-        r = np.copy(self.buf_r[start:end])
-        term = np.copy(self.buf_term[start:end])
-        s2 = np.copy(self.buf_s2[start:end])
+        s = self.buf_s[start:end]
+        a = self.buf_a[start:end]
+        r = self.buf_r[start:end]
+        term = self.buf_term[start:end]
+        s2 = self.buf_s2[start:end]
 
         return s, a, r, s2, term
 
@@ -122,7 +132,7 @@ class TransitionTable:
             s, t = self.s, self.t
 
         # DONE copy frames and zeros pad missing frames
-        fullstate = np.zeros(shape=(self.histLen, *self.stateDim), dtype=np.uint8)
+        fullstate = np.zeros((self.histLen, *self.stateDim), dtype=np.uint8)
 
         end_index = min(len(s) - 1, index + self.histLen)
 
@@ -130,8 +140,8 @@ class TransitionTable:
             fullstate[fs_idx] = np.copy(s[i])
 
         # DONE 5 copy frames and zero-out un-related frames
-        # Because all the episode frames is stack together, 
-        # the below code is use to find the terminal state index (episode-seperator) 
+        # Because all the episode frames is stack together,
+        # the below code is use to find the terminal state index
         # and zero out all the frames after that index.
         zero_out = False
 
@@ -143,7 +153,7 @@ class TransitionTable:
                 if t[idx] == 1:
                     zero_out = True
 
-            # after terminal state is comfirmed, 
+            # after terminal state is comfirmed,
             # zero out frames starting at the terminal index
             if zero_out:
                 fullstate[i] = np.zeros_like(fullstate[i])
@@ -154,14 +164,15 @@ class TransitionTable:
         pass
 
     def get_recent(self):  # DONE
-        # Assumes that the most recent state has been added, but the action has not
+        # Assumes that the most recent state has been added,
+        # but the action has not
         return self.concatFrames(0, True)
 
     def get(self, index):  # DONE
         s = self.concatFrames(index)
         s2 = self.concatFrames(index + 1)
-        # TODO 3 what is `ar_index`
-        # why `ar_indxt = index + self.recentMemSize - 1`
+        # TODO 3 what is ar_index
+        # why ar_index = index + self.recentMemSize - 1
         ar_index = index + self.recentMemSize - 1
 
         return s, self.a[ar_index], self.r[ar_index], s2, self.t[ar_index + 1]

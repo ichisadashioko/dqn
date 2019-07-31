@@ -38,24 +38,6 @@ class DQNAgent:
         network=None,
         action_repeat=4,
     ):
-        """
-        Parameters
-        ----------
-        n_actions : int
-            The number of actions that the agent can take.
-
-        ep_start : float
-            The inital epsilon value in epsilon-greedy.
-
-        ep_end : float
-            The final epsilon value in epsilon-greedy.
-
-        ep_endt : int
-            The number of timesteps over which the inital value of epislon is linearly annealed to its final value.
-
-        lr : float
-            The learning rate used by RMSProp.
-        """
         # self.state_dim = state_dim
         self.n_actions = n_actions
 
@@ -63,7 +45,9 @@ class DQNAgent:
         self.ep_start = ep_start  # inital epsilon value
         self.ep = self.ep_start  # exploration probability
         self.ep_end = ep_end  # final epsilon value
-        self.ep_endt = ep_endt  # the number of timesteps over which the inital value of epislon is linearly annealed to its final value
+        # the number of timesteps over which
+        # the inital value of epislon is linearly annealed to its final value
+        self.ep_endt = ep_endt
 
         self.lr = lr
         self.minibatch_size = minibatch_size
@@ -89,7 +73,7 @@ class DQNAgent:
                 n_actions=self.n_actions,
                 lr=self.lr,
             )
-        
+
         self.network = self.createNetwork(
             n_actions=self.n_actions,
             lr=self.lr,
@@ -99,7 +83,10 @@ class DQNAgent:
         self.copy_weights(self.target_network, self.network)
 
         # create transition table
-        self.transitions = TransitionTable(histLen=self.hist_len, maxSize=self.replay_memory)
+        self.transitions = TransitionTable(
+            histLen=self.hist_len,
+            maxSize=self.replay_memory,
+        )
 
         self.numSteps = 0  # number of perceived states
         self.lastState = None
@@ -114,7 +101,12 @@ class DQNAgent:
 
         self.action_repeat = action_repeat
 
-    def createNetwork(self, input_shape=(4, 105, 80), n_actions=4, lr=0.00025):
+    def createNetwork(
+        self,
+        input_shape=(4, 105, 80),
+        n_actions=4,
+        lr=0.00025,
+    ):
         model = keras.Sequential([
             Conv2D(
                 filters=32,
@@ -183,7 +175,8 @@ class DQNAgent:
         assert s.shape == s2.shape
         forward_batch = np.concatenate((s, s2), axis=0)
 
-        # I only scale values between [0..1] at the last step to reduce memory usage
+        # I only scale values between [0..1] at the last step
+        # to reduce memory usage
         forward_batch = forward_batch / 255.0
         # We use the target_network to predict the Q-values
         q_batch = self.target_network.predict(forward_batch)
@@ -199,7 +192,7 @@ class DQNAgent:
         target_q_values = target_q_values + r
 
         delta = []
-        
+
         # TODO action mask
         # target_labels = np.zeros_like(s_q_values)
 
@@ -259,7 +252,10 @@ class DQNAgent:
 
         return avg_loss
 
-    def perceive(self, reward, rawstate, terminal, testing=False, testing_ep=None, verbose=0):  # DONE 1
+    def perceive(
+        self, reward, rawstate, terminal,
+        testing=False, testing_ep=None, verbose=0,
+    ):
         """
         reward : number
             The received reward from environment.
@@ -287,24 +283,32 @@ class DQNAgent:
 
         # store transition s, a, r, s'
         if (self.lastState is not None) and not testing:
-            self.transitions.add(self.lastState,self.lastAction,reward,self.lastTerminal)
+            self.transitions.add(
+                s=self.lastState,
+                a=self.lastAction,
+                r=reward,
+                term=self.lastTerminal,
+            )
 
         # select action
         action = 0
         if not terminal and self.numSteps % self.action_repeat == 0:
-            curState = self.transitions.get_recent()  # curState.shape == (4, 105, 80)
+            # curState.shape is (4, 105, 80)
+            curState = self.transitions.get_recent()
             # convert to batch (1, 4, 105, 80)
             curState = np.array([curState], dtype=np.uint8)
 
             action = self.eGreedy(curState, testing_ep)
         else:
             action = self.lastAction
-        
-        if not testing:
-            if (self.numSteps > self.learn_start) and (self.numSteps % self.update_freq == 0):
-                # do some Q-learning updates
-                for _ in range(self.n_replay):
-                    self.qLearnMinibatch(verbose=verbose)
+
+        # break long if conditions
+        isUpdate = (not testing) and (self.numSteps > self.learn_start)
+        isUpdate = isUpdate and (self.numSteps % self.update_freq == 0)
+        if isUpdate:
+            # do some Q-learning updates
+            for _ in range(self.n_replay):
+                self.qLearnMinibatch(verbose=verbose)
 
         self.numSteps += 1
 
@@ -314,15 +318,20 @@ class DQNAgent:
 
         return action
 
+    def calc_epsilon(self):
+        ep_range = self.ep_start - self.ep_end
+        ep_prog = 1 - max(0, self.numSteps - self.learn_start) / self.ep_endt
+        ep_delta = ep_range * ep_prog
+        retval = self.ep_end + max(0, ep_delta)
+
+        return retval
+
     def eGreedy(self, state, testing_ep=None):  # DONE 3
         """
         testing_ep : testing epsilon
         """
         if testing_ep is None:
-            ep_range = self.ep_start - self.ep_end
-            ep_prog = 1.0 - max(0, self.numSteps - self.learn_start) / self.ep_endt
-            ep_delta = ep_range * ep_prog
-            self.ep = self.ep_end + max(0, ep_delta)
+            self.ep = self.calc_epsilon()
         else:
             self.ep = testing_ep
 
