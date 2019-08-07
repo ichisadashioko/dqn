@@ -6,27 +6,9 @@ There are some different with the original implementation because of my need (ge
 
 There is a [colab ready notebook](colab_train_dqn.ipynb) that you can *Restart and run all*.
 
-## Limitations
+## CartPole
 
-1. Appereantly, the network does *not* converge.
-
-After 1M time steps, all the final layers can barely see the ball.
-
-- First convolutional layer output:
-
-![](images/conv2d_display_grid.png)
-
-- Second convolutional layer output:
-
-![](images/conv2d_1_display_grid.png)
-
-- Third convolutional layer output:
-
-![](images/conv2d_2_display_grid.png)
-
-2. Training take too long.
-
-The currently implementation requires the network to update every time steps (after learning start).
+- [DQN](dqn_cartpole.ipynb) is able to perform better than randomness after an hour of training.
 
 ## References
 
