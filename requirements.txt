@@ -5,3 +5,5 @@ gym[atari]
 matplotlib
 opencv-python
 tensorflow-gpu==2.0.0-beta1
+pandas
+seaborns
