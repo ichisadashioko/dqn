@@ -47,3 +47,36 @@ for i in range(numSteps):
     else:
         State = NextState
 ```
+
+## Saving and loading progress
+
+- Save model weights
+- Save `Memory`
+    - Save `Memory`'s data
+    - Save `Environment`'s state
+- Save number of trained steps
+- Save logging information
+- JSON format
+
+    ```json
+    {
+        "agent": {
+            "network": "networkFilePath",
+            "targetNet": "targetNetFilePath",
+            "trainedSteps": 0,
+            "updateFrequency": 1000,
+        },
+        "memory": {
+            "data": {
+                "state": "stateDataFilePath",
+                "nextState": "nextStateDataFilePath",
+                "reward": "rewardDataFilePath",
+                "action": "actionDataFilePath",
+                "terminal": "terminalDataFilePath",
+            },
+        },
+        "env": {
+            "state": "envStateDataFilePath",
+        },
+    }
+    ```
