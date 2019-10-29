@@ -42,11 +42,11 @@ class DQNAgent:
         self.n_actions = n_actions
 
         # epsilon annealing
-        self.ep_start = ep_start  # inital epsilon value
+        self.ep_start = ep_start  # initial epsilon value
         self.ep = self.ep_start  # exploration probability
         self.ep_end = ep_end  # final epsilon value
         # the number of timesteps over which
-        # the inital value of epislon is linearly annealed to its final value
+        # the initial value of epislon is linearly annealed to its final value
         self.ep_endt = ep_endt
 
         self.lr = lr
@@ -167,7 +167,7 @@ class DQNAgent:
         # _img = np.where(_img == 0, 0, 255).astype(np.uint8)
         return state
 
-    def getQUpdate(self, s, a, r, s2, term):  # DOME 2
+    def getQUpdate(self, s, a, r, s2, term):
         # merge `s` and `s2` together for one forward pass
 
         _term = (term * -1) + 1
