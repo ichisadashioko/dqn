@@ -151,11 +151,6 @@ class DQNAgent:
 
         return model
 
-    def copy_weights(self, a, b):
-        temp_weights_filename = 'temp_weights.h5'
-        a.save_weights(temp_weights_filename)
-        b.load_weights(temp_weights_filename)
-
     def reset(self, state):
         # TODO 9 Low-priority
         pass
