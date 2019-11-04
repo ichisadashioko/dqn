@@ -3,21 +3,9 @@ import time
 import math
 import random
 from datetime import datetime
+import argparse
 
 from tqdm import tqdm
-
-import numpy as np
-import matplotlib.pyplot as plt
-
-import gym
-from gym.envs.registration import register
-
-# disable TensorFlow logs
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-import tensorflow as tf
-
-from DQNAgent import DQNAgent
-from TransitionTable import TransitionTable
 
 
 def time_now(micro=False):
@@ -31,25 +19,115 @@ def time_now(micro=False):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        '--batchsize',
+        type=int,
+        default=32,
+        required=False,
+        help='specify the minibatch size for each training step',
+    )
+
+    parser.add_argument(
+        '--memorysize',
+        type=int,
+        default=500_000,
+        required=False,
+        help='specify the memory size of the replay memory',
+    )
+
+    parser.add_argument(
+        '--updatefreq',
+        type=int,
+        default=10_000,
+        required=False,
+        help='the number of steps to update target network weights',
+    )
+
+    parser.add_argument(
+        '--discount',
+        type=float,
+        default=0.99,
+        required=False,
+        help='discount value',
+    )
+
+    parser.add_argument(
+        '--lr',
+        type=float,
+        default=0.00025,
+        required=False,
+        help='learning rate',
+    )
+
+    parser.add_argument(
+        '--env',
+        type=str,
+        default='BreakoutNoFrameskip-v4',
+        required=False,
+        help='gym environment name',
+    )
+
+    parser.add_argument(
+        '--epstart',
+        type=float,
+        default=1.0,
+        required=False,
+        help='initial epsilon exploration value',
+    )
+
+    parser.add_argument(
+        '--epend',
+        type=float,
+        default=0.1,
+        required=False,
+        help='final epsilon value',
+    )
+
+    parser.add_argument(
+        '--steps',
+        type=int,
+        default=500_000,
+        required=False,
+        help='number of training steps',
+    )
+
+    args = parser.parse_args()
+    print(args)
 
     # hyperparamters
-    minibatch_size = 32
-    replay_memory_size = 200_000
+    minibatch_size = args.batchsize
+    replay_memory_size = args.memorysize
     agent_history_length = 4
-    target_network_update_frequency = 10_000
+    target_network_update_frequency = args.updatefreq
     val_freq = target_network_update_frequency
-    discount_factor = 0.99
+    discount_factor = args.discount
     action_repeat = 4  # repeat each action selected by the agent this many times. Using a value of 4 results in the agent seeing only every 4 input frame
     update_frequency = 4  # the number of actions selected by the agent between successive SGD updates. Using a value of 4 results in the agent selecting 4 actions between each pair of successive updates
-    learning_rate = 0.001
-    inital_exploration = 1.0  # initial value of epsilon in epsilon-greedy exploration
-    final_exploration = 0.1  # final value of epsilon in epsilon-greedy exploration
+    learning_rate = args.lr
+    inital_exploration = args.epstart  # initial value of epsilon in epsilon-greedy exploration
+    final_exploration = args.epend  # final value of epsilon in epsilon-greedy exploration
     final_exploration_frame = 1_000_000  # the number of frames over which the initial value of epsilon is linearly annealed to its final value
-    replay_start_size = 5_000  # a uniform random policy is run for this number of frames before learning starts and the resulting experience is used to populate the replay memory
+    replay_start_size = 50_000  # a uniform random policy is run for this number of frames before learning starts and the resulting experience is used to populate the replay memory
 
     # env_name = 'Breakout-v0'
-    env_name = 'BreakoutNoFrameskip-v4'
-    
+    env_name = args.env
+    exit(0)
+
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    import gym
+    from gym.envs.registration import register
+
+    # disable TensorFlow logs
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+    import tensorflow as tf
+
+    from DQNAgent import DQNAgent
+    from TransitionTable import TransitionTable
+
     # configure model directory
     save_dir = env_name
     if not os.path.exists(save_dir):
@@ -87,7 +165,7 @@ if __name__ == "__main__":
     # training loop
     ep_reward_log = []
     # 100.0 fps on GTX 1050 (mobile) - utilize ~24%
-    num_steps = 360_000
+    num_steps = args.steps
     step = 0
 
     screen = env.reset()
@@ -139,5 +217,12 @@ if __name__ == "__main__":
     agent.target_network.save(model_filename)
 
     np_reward_log = np.array(ep_reward_log)
-    plt.plot(np_reward_log)
-    plt.show()
+    # plt.plot(np_reward_log)
+    # plt.show()
+    max_reward = np.max(np_reward_log)
+    min_reward = np.min(np_reward_log)
+    mean_reward = np.mean(np_reward_log)
+
+    print(f'max_reward: {max_reward}')
+    print(f'min_reward: {min_reward}')
+    print(f'mean_reward: {mean_reward}')

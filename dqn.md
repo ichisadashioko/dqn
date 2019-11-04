@@ -65,6 +65,11 @@ for i in range(numSteps):
             "targetNet": "targetNetFilePath",
             "trainedSteps": 0,
             "updateFrequency": 1000,
+            "epsilonStart": 1.0,
+            "epsilonEnd": 0.1,
+            "epsilonEndStep": 1000000,
+            "learningRate": 0.00025,
+            "discount": 0.99,
         },
         "memory": {
             "data": {

@@ -40,7 +40,6 @@ class TransitionTable:
         # Tables for storing the last `histLen` states.
         # They are used for constructing the most recent agent state easier
         self.recent_s = []
-        self.recent_a = []
         self.recent_t = []
 
         # DONE pre-allocate Tensors
@@ -174,6 +173,7 @@ class TransitionTable:
         # TODO 3 what is ar_index
         # why ar_index = index + self.recentMemSize
         ar_index = index + self.recentMemSize
+        ar_index %= self.maxSize
 
         return s, self.a[ar_index], self.r[ar_index], s2, self.t[ar_index + 1]
 
@@ -205,14 +205,3 @@ class TransitionTable:
         if len(self.recent_t) > self.recentMemSize:
             self.recent_s.pop(0)
             self.recent_t.pop(0)
-
-    def add_recent_action(self, a):  # DONE
-        if len(self.recent_a) == 0:
-            for i in range(self.recentMemSize):
-                self.recent_a.append(0)
-
-        self.recent_a.append(a)
-
-        # keep recentMemSize steps
-        if len(self.recent_a) > self.recentMemSize:
-            self.recent_a.pop(0)
